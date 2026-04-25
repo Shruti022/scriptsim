@@ -15,9 +15,9 @@
 | GCS bucket `scriptsim-screenshots` | Person 1 | Created in GCP |
 | Firestore database | Person 1 | Not started |
 | Cloud Run deployment | Person 1 | Not started |
-| `agents/` — ADK agent definitions | Person 2 | Not started |
-| `schemas/bug_report.py` | Person 2 | Not started |
-| `orchestrator.py` | Person 2 | Not started |
+| `agents/` — ADK agent definitions | Person 2 | DONE |
+| `schemas/bug_report.py` | Person 2 | DONE |
+| `orchestrator.py` | Person 2 | DONE |
 | `demo_app/` — Flask app with planted bugs | Person 3 | Not started |
 | `dashboard/` — Next.js frontend | Person 3 | Not started |
 | `api/` — FastAPI scan trigger | Person 3 | Not started |
@@ -189,3 +189,24 @@ C:\...\ms-playwright\chromium_headless_shell-1208\...
 - [ ] Test `login.py` + `click_element` against demo app (needs Person 3 deploy URL)
 - [ ] Set up Cloud Run deployment (session: `person1-cloudrun`)
 - [ ] Grant Cloud Run service account `Storage Object Creator` + `Cloud Datastore User` roles in GCP IAM
+
+## Person 2 — Completed Work
+
+| File | What it does |
+|------|-------------|
+| `schemas/bug_report.py` | Pydantic `BugReport` model with 9 fields, severity 1–5 |
+| `agents/setup_agent.py` | LlmAgent — calls `login` tool, outputs `auth_cookies` to session state |
+| `agents/mapper_agent.py` | LlmAgent — crawls app with `get_page_state` + `click_element`, outputs `feature_map` |
+| `agents/persona_agent.py` | `make_persona_agent(persona)` — creates persona-specific LlmAgent with 6 tools, no schema |
+| `agents/report_agent.py` | `make_report_agent(persona)` — LlmAgent with `output_schema=BugReport`, no tools |
+| `agents/synthesis_agent.py` | LlmAgent — deduplicates bugs, cross-persona severity boost, outputs `deduplicated_bugs` |
+| `agents/eval_agent.py` | LlmAgent — final scoring + ranking, outputs `final_report` JSON |
+| `orchestrator.py` | `run_scan(url)` — SequentialAgent pipeline with ParallelAgent for personas + reports |
+
+**ADK constraint verified:** `PersonaAgent` has 6 tools + no `output_schema`. `ReportAgent` has `output_schema=BugReport` + zero tools.
+
+**Personas implemented:** kid (8yo), power_user (22yo), parent (45yo), retiree (67yo)
+
+**Pipeline:** SetupAgent → MapperAgent → ParallelAgent(4 personas) → ParallelAgent(4 reports) → SynthesisAgent → EvalAgent
+
+**Untested:** needs Person 3's demo app URL to run end-to-end
