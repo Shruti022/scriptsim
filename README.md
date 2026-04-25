@@ -44,15 +44,17 @@ SetupAgent → MapperAgent → ParallelAgent (4 personas) → ReportAgents → S
 
 ```
 scriptsim/
+├── test_agent.py           # Smoke test — run single agent against any URL
 ├── tools/                  # Person 1 — Playwright browser tools
-│   ├── browser.py          # Browser singleton (start, stop, inject cookies)
+│   ├── browser.py          # Async browser singleton (start, stop, inject cookies)
 │   ├── get_page_state.py   # Snapshot of current page (buttons, inputs, links)
 │   ├── click_element.py    # Click by visible text or aria-label
 │   ├── type_text.py        # Fill input by placeholder or aria-label
 │   ├── hover_element.py    # Hover to reveal tooltips/dropdowns
-│   ├── take_screenshot.py  # Screenshot → GCS bucket
+│   ├── take_screenshot.py  # Screenshot → GCS bucket (returns gs:// URI)
 │   ├── log_bug.py          # Write bug to Firestore
-│   └── login.py            # Fill login form, return session cookies
+│   ├── login.py            # Fill login form, return session cookies
+│   └── go_back.py          # Browser back navigation (page.go_back())
 │
 ├── agents/                 # Person 2 — ADK agent definitions
 │   ├── setup_agent.py      # Logs in to target app
@@ -109,12 +111,19 @@ scriptsim/
 ### Install
 
 ```bash
-pip install "playwright>=1.50.0"
-pip install google-adk google-cloud-firestore google-cloud-storage fastapi uvicorn
+pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-> **Note:** `requirements.txt` pins `playwright==1.44.0` for Docker. Locally on Python 3.14, install `playwright>=1.50.0` instead.
+> **Note:** `requirements.txt` pins `playwright==1.44.0` for Docker compatibility. If you're on Python 3.14 locally and get a `greenlet` build error, run `pip install "playwright>=1.50.0"` to override it. Always use `python -m playwright install chromium` (not just `playwright install chromium`) to install the browser for the correct version.
+
+### Create `.env` file (not committed — share privately with teammates)
+
+```
+GOOGLE_GENAI_USE_VERTEXAI=1
+GOOGLE_CLOUD_PROJECT=agentic-fp-scriptsim
+GOOGLE_CLOUD_LOCATION=us-central1
+```
 
 ### Authenticate with GCP
 
@@ -124,13 +133,14 @@ gcloud config set project agentic-fp-scriptsim
 gcloud auth application-default set-quota-project agentic-fp-scriptsim
 ```
 
-### Test individual tools
+### Verify setup with smoke tests
 
 ```bash
-python tools/get_page_state.py https://example.com
-python tools/click_element.py https://example.com "Learn more"
-python tools/take_screenshot.py https://example.com test-label
+python test_agent.py mapper https://example.com       # MapperAgent — should print feature_map JSON
+python test_agent.py persona kid https://example.com  # kid PersonaAgent — should print action_log_kid
 ```
+
+Both tests confirmed working as of 2026-04-25.
 
 ### Run a full scan (once demo app is deployed)
 
@@ -150,10 +160,12 @@ python orchestrator.py https://<demo-app-url>
 
 ## Key Design Decisions
 
-**Sync Playwright over async** — Google ADK tool functions must be regular `def`, not `async def`. All browser tools use `playwright.sync_api`.
+**Async Playwright (not sync)** — ADK's runner is async, so all browser tools must be `async def` using `playwright.async_api`. Sync Playwright raises an error inside an asyncio event loop. Every `page.*` call must be `await`-ed.
 
-**`gs://` URIs for screenshots** — GCS Public Access Prevention is on by default in GCP. Tools store `gs://scriptsim-screenshots/filename.png` URIs instead of public HTTPS URLs. Cloud Run service accounts access GCS directly. The dashboard handles signed URLs for display.
+**`gs://` URIs for screenshots** — GCS Public Access Prevention is on by default in GCP. Tools store `gs://scriptsim-screenshots/filename.png` URIs instead of public HTTPS URLs. Cloud Run service accounts access GCS directly via IAM. The dashboard handles signed URLs for display.
 
-**ADK constraint: tools XOR output_schema** — Gemini does not support both on the same agent. PersonaAgents have 6 tools and no schema. ReportAgents have `output_schema=BugReport` and no tools.
+**`go_back()` tool for navigation** — Agents cannot control browser chrome (the back button). `tools/go_back.py` wraps `page.go_back()` and must be given to any agent that needs to navigate back between pages.
+
+**ADK constraint: tools XOR output_schema** — Gemini does not support both on the same agent. PersonaAgents have tools and no schema. ReportAgents have `output_schema=BugReport` and no tools.
 
 **State passing via `output_key`** — Agents do not return values directly. Each agent writes to session state via `output_key`. Downstream agents read via `{variable_name}` in their instruction templates.
