@@ -50,7 +50,7 @@
 |----------|--------|--------|
 | GCS bucket `scriptsim-screenshots` | Region: us-central1, Standard class | Created + Tested |
 | Firestore database | Native mode, us-central1, Standard edition | Created + Tested |
-| IAM access for teammates | Vertex AI User + Storage Object Creator + Cloud Datastore User | Configured |
+| IAM access for teammates | Vertex AI User (Gemini API) + Storage Object Creator (GCS uploads) + Cloud Datastore User (Firestore writes) | Configured |
 | Cloud Run service `scriptsim-worker` | us-central1 | Not created yet |
 
 ### Live Test Results

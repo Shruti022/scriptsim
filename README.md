@@ -133,7 +133,12 @@ gcloud config set project agentic-fp-scriptsim
 gcloud auth application-default set-quota-project agentic-fp-scriptsim
 ```
 
-> **GCP access:** All teammates use the shared project `agentic-fp-scriptsim`. Your Gmail must be added to the project IAM by Shruti before this works. Required roles: `Vertex AI User`, `Storage Object Creator`, `Cloud Datastore User`. Person 3 does NOT need GCP access to build the Flask demo app.
+> **GCP access:** All teammates use the shared project `agentic-fp-scriptsim`. Your Gmail must be added to the project IAM by Shruti before this works. Three roles are required:
+> - `Vertex AI User` — to call the Gemini API (every agent call needs this)
+> - `Storage Object Creator` — to upload screenshots to GCS (`take_screenshot.py`)
+> - `Cloud Datastore User` — to write bug reports to Firestore (`log_bug.py`)
+>
+> Person 3 does NOT need GCP access to build the Flask demo app.
 
 ### Verify setup with smoke tests
 

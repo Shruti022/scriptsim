@@ -133,10 +133,15 @@ All teammates share the same GCP project: `agentic-fp-scriptsim`
 
 **How Shruti adds a teammate (GCP Console → IAM & Admin → IAM → Grant Access):**
 1. New principals: enter their Gmail
-2. Add role: `Vertex AI User`
-3. Add role: `Storage Object Creator`
-4. Add role: `Cloud Datastore User`
+2. Add role: `Vertex AI User` — allows calling Gemini API (every agent needs this)
+3. Add role: `Storage Object Creator` — allows uploading screenshots to GCS bucket
+4. Add role: `Cloud Datastore User` — allows reading/writing bugs to Firestore
 5. Save — no IAM conditions needed
+
+**Why each role is required:**
+- `Vertex AI User` — agents call gemini-2.5-flash/flash-lite to think and act; without this, every API call returns permission denied
+- `Storage Object Creator` — take_screenshot.py uploads PNGs to gs://scriptsim-screenshots/; without this, screenshots fail silently
+- `Cloud Datastore User` — log_bug.py writes to Firestore scans/{scan_id}/bugs/; without this, bugs are found but never saved
 
 **Teammate then runs:** `gcloud auth application-default login` with that Gmail
 
