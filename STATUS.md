@@ -1,7 +1,8 @@
 # ScriptSim — Dev Status & Error Log
 
 **Last updated:** 2026-04-25  
-**Person 1 session:** person1-playwright-tools
+**Person 1 session:** person1-playwright-tools  
+**GitHub:** https://github.com/Shruti022/scriptsim
 
 ---
 
@@ -21,6 +22,7 @@
 | `demo_app/` — Flask app with planted bugs | Person 3 | Not started |
 | `dashboard/` — Next.js frontend | Person 3 | Not started |
 | `api/` — FastAPI scan trigger | Person 3 | Not started |
+| `README.md` | Person 1 | Done |
 
 ---
 
