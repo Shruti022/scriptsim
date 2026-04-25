@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.claude/
+*credentials*.json
+*service_account*.json
