@@ -80,7 +80,7 @@ scriptsim/
 └── api/                   ← Person 3 owns this
 
 ## Playwright rules (always follow these)
-- Always use async Playwright (playwright.async_api)
+- Use sync Playwright (playwright.sync_api) — ADK tools must be sync def, not async def
 - Always launch with: args=["--no-sandbox", "--disable-dev-shm-usage"]
 - Always wait_for_load_state("networkidle") after navigation
 - Always wrap tool calls in try/except — never let a tool crash the agent
@@ -89,11 +89,11 @@ scriptsim/
 - Screenshots: save to /tmp/ first, then upload to GCS, return URL
 
 ## GCP config
-- Project: scriptsim-project (create this in GCP console)
+- Project: agentic-fp-scriptsim
 - Region: us-central1
-- Firestore collection: scans/{scan_id}/
-- GCS bucket: scriptsim-screenshots
-- Cloud Run service: scriptsim-worker
+- Firestore: (default) database, Native mode, collection scans/{scan_id}/bugs/
+- GCS bucket: scriptsim-screenshots (us-central1, no public access — use gs:// URIs)
+- Cloud Run service: scriptsim-worker (not yet deployed)
 
 ## Demo app URL (Person 3 deploys this)
 - URL: TBD (Railway deployment, update this when available)
@@ -105,6 +105,18 @@ scriptsim/
 cd tools/
 python get_page_state.py  # should print JSON of current page
 python click_element.py "Like"  # should click and confirm
+
+## What is done
+- tools/ — all 9 Playwright tools, tested against live GCP (Person 1)
+- agents/ + schemas/ + orchestrator.py — full ADK pipeline (Person 2)
+- GCS bucket scriptsim-screenshots — created, tested
+- Firestore (default) database — created, tested
+- GitHub: https://github.com/Shruti022/scriptsim
+
+## What is pending
+- demo_app/ + dashboard/ + api/ — Person 3
+- Cloud Run deployment — Person 1 (session: person1-cloudrun)
+- Update demo app URL below once Person 3 deploys
 
 ## Session naming convention for Claude Code
 claude --resume "person1-playwright-tools"
