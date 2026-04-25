@@ -1,22 +1,19 @@
 """
-Shared Playwright browser instance.
-All tool functions call get_page() to get the current page.
-This module manages one browser and one page per container.
+Shared async Playwright browser instance.
+All tool functions are async and call get_page() to get the current page.
 """
-from playwright.sync_api import sync_playwright, Page, Browser
+from playwright.async_api import async_playwright, Page, Browser, Playwright
 
+_playwright: Playwright = None
 _browser: Browser = None
 _page: Page = None
-_playwright = None
 
 
-def start_browser(url: str = None):
-    """Start the browser and optionally navigate to a URL.
-    Call this once at the start of each persona scan."""
-    global _browser, _page, _playwright
-
-    _playwright = sync_playwright().start()
-    _browser = _playwright.chromium.launch(
+async def start_browser(url: str = None) -> Page:
+    """Start the browser and optionally navigate to a URL."""
+    global _playwright, _browser, _page
+    _playwright = await async_playwright().start()
+    _browser = await _playwright.chromium.launch(
         headless=True,
         args=[
             "--no-sandbox",
@@ -25,43 +22,41 @@ def start_browser(url: str = None):
             "--window-size=1280,800",
         ]
     )
-    _page = _browser.new_page(viewport={"width": 1280, "height": 800})
-
+    _page = await _browser.new_page(viewport={"width": 1280, "height": 800})
     if url:
-        _page.goto(url)
-        _page.wait_for_load_state("networkidle", timeout=10000)
-
+        await _page.goto(url)
+        await _page.wait_for_load_state("networkidle", timeout=10000)
     return _page
 
 
-def get_page() -> Page:
+async def get_page() -> Page:
     """Get the current browser page. Raises if browser not started."""
     if _page is None:
-        raise RuntimeError("Browser not started. Call start_browser() first.")
+        raise RuntimeError("Browser not started. Call await start_browser() first.")
     return _page
 
 
-def inject_cookies(cookies: list[dict]):
+async def inject_cookies(cookies: list[dict]):
     """Inject auth cookies so agent browses as logged-in user."""
     if _page is None:
         raise RuntimeError("Browser not started.")
-    _page.context.add_cookies(cookies)
+    await _page.context.add_cookies(cookies)
 
 
-def set_zoom(percent: int):
-    """Set browser zoom level. Use 150 for elderly retiree, 200 for grandma."""
+async def set_zoom(percent: int):
+    """Set browser zoom level. Use 150 for retiree persona."""
     if _page is None:
         raise RuntimeError("Browser not started.")
-    _page.evaluate(f"document.body.style.zoom = '{percent}%'")
+    await _page.evaluate(f"document.body.style.zoom = '{percent}%'")
 
 
-def close_browser():
+async def close_browser():
     """Clean up browser resources."""
     global _browser, _page, _playwright
     if _browser:
-        _browser.close()
+        await _browser.close()
     if _playwright:
-        _playwright.stop()
+        await _playwright.stop()
     _browser = None
     _page = None
     _playwright = None

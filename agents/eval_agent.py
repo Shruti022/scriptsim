@@ -2,7 +2,7 @@ from google.adk.agents import LlmAgent
 
 eval_agent = LlmAgent(
     name="eval_agent",
-    model="gemini-2.5-flash-preview-05-20",
+    model="gemini-2.5-flash",
     description="Assigns final severity scores and produces the ranked bug report.",
     instruction="""You are a principal QA engineer doing final evaluation of a bug report.
 

@@ -7,7 +7,7 @@ def make_report_agent(persona: str) -> LlmAgent:
     Agent has output_schema=BugReport and NO tools (ADK constraint)."""
     return LlmAgent(
         name=f"report_{persona}",
-        model="gemini-2.5-flash-preview-05-20",
+        model="gemini-2.5-flash",
         description=f"Converts the {persona} persona action log into structured BugReport objects.",
         instruction=f"""You are a QA analyst reading a bug-hunting session log from the "{persona}" persona.
 

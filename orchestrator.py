@@ -89,7 +89,7 @@ async def run_scan(
 
     # Phase 1 + 2: SetupAgent and MapperAgent — single shared browser
     print(f"[scan:{scan_id}] Starting browser for setup + mapping...")
-    start_browser(target_url)
+    await start_browser(target_url)
 
     setup_events = []
     async for event in runner.run_async(
@@ -104,7 +104,7 @@ async def run_scan(
         if hasattr(event, "content") and event.content:
             print(f"[{event.author}] {str(event.content)[:120]}")
 
-    close_browser()
+    await close_browser()
 
     # Retrieve final report from session state
     updated_session = await session_service.get_session(
@@ -123,17 +123,17 @@ async def run_scan(
     return {"scan_id": scan_id, "report": final_report}
 
 
-def _setup_persona_browser(target_url: str, cookies_json: str, persona: str):
+async def _setup_persona_browser(target_url: str, cookies_json: str, persona: str):
     """Start a browser for a persona, inject auth cookies, set zoom if needed."""
-    start_browser(target_url)
+    await start_browser(target_url)
     try:
         cookies = json.loads(cookies_json)
         if isinstance(cookies, list):
-            inject_cookies(cookies)
+            await inject_cookies(cookies)
     except (json.JSONDecodeError, TypeError):
         pass
     if persona == "retiree":
-        set_zoom(150)
+        await set_zoom(150)
 
 
 if __name__ == "__main__":

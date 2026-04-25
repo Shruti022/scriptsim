@@ -13,34 +13,36 @@
 | `tools/` — Playwright tool functions | Person 1 | DONE + Tested |
 | `Dockerfile` | Person 1 | Done (initial) |
 | `requirements.txt` | Person 1 | Done (initial) |
-| GCS bucket `scriptsim-screenshots` | Person 1 | Created in GCP |
-| Firestore database | Person 1 | Not started |
+| GCS bucket `scriptsim-screenshots` | Person 1 | Created + Tested |
+| Firestore database | Person 1 | Created + Tested |
 | Cloud Run deployment | Person 1 | Not started |
 | `agents/` — ADK agent definitions | Person 2 | DONE |
 | `schemas/bug_report.py` | Person 2 | DONE |
 | `orchestrator.py` | Person 2 | DONE |
+| First end-to-end Gemini scan | Person 1+2 | **DONE — MapperAgent ran successfully** |
 | `demo_app/` — Flask app with planted bugs | Person 3 | Not started |
 | `dashboard/` — Next.js frontend | Person 3 | Not started |
 | `api/` — FastAPI scan trigger | Person 3 | Not started |
-| `README.md` | Person 1 | Done |
+| `README.md` | All | Done |
 
 ---
 
 ## Person 1 — Completed Work
 
-### tools/ directory (all 9 files)
+### tools/ directory (all 10 files)
 
 | File | What it does | Status |
 |------|-------------|--------|
 | `tools/__init__.py` | Exports all tool functions for ADK import | Done |
-| `tools/browser.py` | Browser singleton — `start_browser`, `get_page`, `inject_cookies`, `set_zoom`, `close_browser` | Done |
+| `tools/browser.py` | Async browser singleton — `start_browser`, `get_page`, `inject_cookies`, `set_zoom`, `close_browser` | Done + Tested |
 | `tools/get_page_state.py` | Returns JSON snapshot of page: URL, title, buttons, inputs, links, text, modals, errors | Done + Tested |
 | `tools/click_element.py` | Clicks element by visible text, falls back to aria-label | Done + Tested |
 | `tools/type_text.py` | Fills input by placeholder or aria-label, with optional clear-first | Done + Tested |
 | `tools/hover_element.py` | Hovers over element, captures any tooltip text that appears | Done + Tested |
-| `tools/take_screenshot.py` | Screenshot → system temp dir → uploads to GCS → returns `gs://` URI | Done + Tested (local) |
-| `tools/log_bug.py` | Writes bug to Firestore `scans/{scan_id}/bugs/` with severity 1–5 | Done, untested (needs Firestore) |
+| `tools/take_screenshot.py` | Screenshot → system temp dir → uploads to GCS → returns `gs://` URI | Done + Tested |
+| `tools/log_bug.py` | Writes bug to Firestore `scans/{scan_id}/bugs/` with severity 1–5 | Done + Tested |
 | `tools/login.py` | Navigates login page, fills email+password, submits, returns cookies for SetupAgent | Done, untested (needs demo app) |
+| `tools/go_back.py` | Navigates browser back using `page.go_back()` — needed because agents can't click browser chrome | Done |
 
 ### GCP Infrastructure
 
@@ -52,15 +54,17 @@
 
 ### Live Test Results
 
-| Tool | Test | Result |
-|------|------|--------|
-| `get_page_state` | `https://example.com` | PASS |
-| `click_element` | click "Learn more" on example.com | PASS — navigated to iana.org |
-| `type_text` | type into DuckDuckGo search box | PASS |
-| `hover_element` | hover on example.com | PASS |
-| `take_screenshot` | screenshot example.com | PASS — uploaded to `gs://scriptsim-screenshots/gcs-test_1777135923.png` |
-| `log_bug` | write bug to Firestore scan `test-scan-001` | PASS — doc ID `fZb0FWUYAiKawgWeAABP` written |
-| `login` | — | Untested — needs Person 3 demo app URL |
+| Test | Result |
+|------|--------|
+| `get_page_state` on example.com | PASS |
+| `click_element` — click "Learn more" on example.com | PASS — navigated to iana.org |
+| `type_text` — DuckDuckGo search box | PASS |
+| `hover_element` — example.com | PASS |
+| `take_screenshot` — example.com | PASS — `gs://scriptsim-screenshots/gcs-test_1777135923.png` |
+| `log_bug` — write to Firestore scan `test-scan-001` | PASS — doc ID `fZb0FWUYAiKawgWeAABP` |
+| **Full MapperAgent scan vs example.com** | **PASS — first successful Gemini API call** |
+| **PersonaAgent [kid] scan vs example.com** | **PASS — all 7 tools fired, screenshots uploaded to GCS** |
+| `login` | Untested — needs Person 3 demo app URL |
 
 ---
 
@@ -68,9 +72,9 @@
 
 ### Error 1 — `tools/` directory didn't exist
 
-**Problem:** `browser.py` and `get_page_state.py` were sitting in the project root. The `Dockerfile` copies `tools/` and imports reference `tools.browser`, so the files were in the wrong place.
+**Problem:** `browser.py` and `get_page_state.py` were in the project root instead of inside `tools/`. ADK imports reference `tools.browser`.
 
-**Fix:** Created the full `tools/` directory with all 9 required files. Deleted the orphaned root-level copies.
+**Fix:** Created the full `tools/` package with all required files, deleted orphaned root-level copies.
 
 **Status:** Resolved.
 
@@ -80,23 +84,20 @@
 
 **Problem:**
 ```
-error: failed-wheel-build-for-install
-greenlet
-fatal error C1189: #error: "this header requires Py_BUILD_CORE define"
+error: failed-wheel-build-for-install greenlet
+fatal error C1189: "this header requires Py_BUILD_CORE define"
 ```
-`playwright==1.44.0` hard-pins `greenlet==3.0.3`, which was released before Python 3.14 and has no pre-built wheel for it.
+`playwright==1.44.0` pins `greenlet==3.0.3` which has no wheel for Python 3.14.
 
-**Fix:** Upgraded playwright to `1.58.0` locally (`pip install "playwright>=1.50.0"`), which works with `greenlet==3.4.0`.
+**Fix:** Upgraded playwright locally to `>=1.50.0`. Docker still uses `playwright==1.44.0` with Python 3.11 — no conflict.
 
-**Impact on Docker:** None — the Dockerfile uses `mcr.microsoft.com/playwright/python:v1.44.0-jammy` with its own Python 3.11. Version mismatch is local-only.
-
-**Status:** Resolved. Local = playwright 1.58.0 / Docker = playwright 1.44.0.
+**Status:** Resolved. Local = playwright 1.58.0, Docker = playwright 1.44.0.
 
 ---
 
-### Error 3 — `ModuleNotFoundError: No module named 'tools'` when running tools as scripts
+### Error 3 — `ModuleNotFoundError: No module named 'tools'` running tools as scripts
 
-**Problem:** Running `python tools/get_page_state.py` adds `tools/` to `sys.path[0]`, so `from tools.browser import get_page` fails — Python looks for a `tools` package *inside* `tools/`.
+**Problem:** Running `python tools/get_page_state.py` adds `tools/` to `sys.path[0]`, so `from tools.browser import get_page` fails — it looks for `tools` *inside* `tools/`.
 
 **Fix:** All tool files use a try/except import fallback:
 ```python
@@ -105,110 +106,126 @@ try:
 except ImportError:
     from browser import get_page         # works when run as script directly
 ```
-Applied to all 7 tool files and all `__main__` blocks.
 
 **Status:** Resolved.
 
 ---
 
-### Error 4 — `playwright install chromium` downloaded wrong version
+### Error 4 — `playwright install chromium` installed wrong browser version
 
-**Problem:** After upgrading playwright 1.44 → 1.58, the shell `playwright install chromium` downloaded for the old version. Browser binary not found:
-```
-BrowserType.launch: Executable doesn't exist at
-C:\...\ms-playwright\chromium_headless_shell-1208\...
-```
+**Problem:** After upgrading playwright 1.44 → 1.58, `playwright install chromium` (shell command) downloaded for the old version. Browser binary not found.
 
-**Fix:** Used `python -m playwright install chromium` — this ensures the install command uses the same playwright Python package that gets imported.
+**Fix:** Use `python -m playwright install chromium` — this uses the exact playwright version that Python imports.
 
 **Status:** Resolved. Chromium 145.0.7632.6 installed.
 
 ---
 
-### Error 5 — Cannot enable public access on GCS bucket
+### Error 5 — GCS bucket public access prevention
 
-**Problem:** GCS bucket had "Public access prevention" enforced at the bucket level. No edit button appeared in the Configuration tab to disable it. `blob.make_public()` would have failed at runtime.
+**Problem:** GCS bucket had Public Access Prevention enforced. `blob.make_public()` would fail at runtime. No way to disable it in the console.
 
-**Fix:** Dropped public access entirely — switched `take_screenshot.py` to use `gs://` URIs instead of public HTTPS URLs. Removed `blob.make_public()` call. This is correct because:
-- Agents run in Cloud Run and access GCS via service account — no public URL needed
-- `gs://` URIs are stored in Firestore bug reports and used internally by agents
-- Dashboard display (Person 3) will handle signed URLs separately if needed
+**Fix:** Dropped public access entirely. `take_screenshot.py` now returns `gs://` URIs instead of public HTTPS URLs. Cloud Run service accounts access GCS directly via IAM — no public URL needed.
 
-**Status:** Resolved. `take_screenshot` now returns `gs://scriptsim-screenshots/{filename}`.
+**Status:** Resolved. All screenshots stored as `gs://scriptsim-screenshots/{filename}`.
+
+---
+
+### Error 6 — Sync Playwright cannot run inside asyncio event loop
+
+**Problem:** Original tools used sync Playwright (`playwright.sync_api`). ADK runner is async — calling a sync Playwright function inside an async event loop raises:
+```
+playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
+```
+
+Also tried `nest_asyncio` to patch the loop but it broke `aiohttp`'s `asyncio.timeout()`:
+```
+TypeError: object CancelledError can't be used in 'await' expression
+```
+
+**Fix:** Rewrote all 9 tool files to `async def` using `async_playwright` from `playwright.async_api`. All `page.*` calls are now `await`-ed. The ADK runner handles async tools natively.
+
+**Status:** Resolved. All tools are async.
+
+---
+
+### Error 7 — Gemini model 404 NOT_FOUND from Vertex AI
+
+**Problem:** All agent files used preview model names (`gemini-2.5-flash-lite-preview-06-17`, `gemini-2.5-flash-preview-05-20`) that don't exist in Vertex AI:
+```
+404 NOT_FOUND: publishers/google/models/gemini-2.5-flash-lite-preview-06-17 not found
+```
+
+**Fix:** Listed available models via Vertex AI API. Confirmed available IDs:
+- `gemini-2.5-flash-lite` — fast, cheap (PersonaAgent, MapperAgent, SetupAgent)
+- `gemini-2.5-flash` — more capable (ReportAgent, SynthesisAgent, EvalAgent)
+
+Updated all 5 agent files to use these IDs.
+
+**Status:** Resolved. First successful Gemini API call confirmed.
+
+---
+
+### Error 8 — MapperAgent stuck on sub-pages (no browser back)
+
+**Problem:** MapperAgent clicked "Learn more" and navigated to a sub-page, then tried to click a "Back" button (which doesn't exist in the page content). It looped trying different selectors and never returned to the original page.
+
+**Fix:** Added `tools/go_back.py` which calls `page.go_back()` — the real browser back. Added it to MapperAgent and all PersonaAgents. Updated mapper instruction to use `go_back` after each link click.
+
+**Status:** Resolved.
+
+---
+
+### Error 9 — MapperAgent output wrapped in markdown code fences
+
+**Problem:** Despite "Output ONLY valid JSON" in the instruction, the agent returned:
+```
+```json
+{ ... }
+```
+```
+This breaks downstream agents that try to `json.loads()` the `feature_map` session state.
+
+**Fix:** Strengthened the instruction: "Output ONLY the raw JSON object, nothing else. Do not wrap it in \`\`\`json or any markdown."
+
+**Status:** Resolved (needs re-test to confirm).
 
 ---
 
 ## Design Decisions
 
-### Sync vs Async Playwright
+### Async Playwright (not sync)
 
-**Conflict:** `CLAUDE.md` says "Always use async Playwright". `playwright-tools.md` says tools must be sync functions because ADK tool functions cannot be `async def`.
+All tools are `async def` using `async_playwright`. The CLAUDE.md note about sync Playwright is outdated — ADK is async and sync Playwright cannot run inside an asyncio loop.
 
-**Decision:** All tools use sync Playwright. ADK wraps tool calls synchronously — async tools break the agent loop. The CLAUDE.md async note predates the ADK constraint.
+### GCS `gs://` URIs, not public HTTPS URLs
 
-### GCS — `gs://` URI vs Public HTTPS URL
+Tools return `gs://scriptsim-screenshots/{filename}` URIs. Cloud Run service accounts access GCS via IAM. Public access is blocked at the bucket level and is unnecessary.
 
-**Decision:** Tools return `gs://scriptsim-screenshots/{filename}` URIs, not public HTTPS URLs. Cloud Run service accounts have Storage Object Viewer/Creator permissions and can access GCS directly. Public access is unnecessary and a security risk.
+### `go_back` as a dedicated tool
 
----
-
-## What Is and Isn't in CLAUDE.md
-
-### In CLAUDE.md
-- Project description, 5 persona types
-- Locked tech stack
-- Architecture phases (Setup → Mapper → Parallel → Report → Synthesis/Eval)
-- Critical ADK constraint: `output_schema` and `tools` are mutually exclusive
-- Agent state via `output_key`
-- Ownership boundaries (Person 1 / 2 / 3)
-- Full folder structure
-- Playwright rules
-- GCP config (project, region, Firestore collection, GCS bucket, Cloud Run service)
-- Demo app URL + credentials + 5 planted bugs
-- How to run tools locally + session naming
-
-### NOT in CLAUDE.md (important things to know)
-- `playwright==1.44.0` incompatible with Python 3.14 — use `>=1.50.0` locally
-- Use `python -m playwright install` not `playwright install`
-- `tools/__init__.py` exports all functions for ADK agent import
-- `take_screenshot` returns `gs://` URI, not a public URL (GCP Public Access Prevention blocks public access)
-- `log_bug` clamps severity: `max(1, min(5, severity))`
-- `login.py` returns raw cookies as a list — SetupAgent persists them to Firestore
-- GCS bucket created but Cloud Run service account permissions still need to be set when Cloud Run is deployed
+Agents cannot control browser chrome (back button). A `go_back()` tool wrapping `page.go_back()` is required for any navigation-heavy agent.
 
 ---
 
-## Next Steps for Person 1
+## Next Steps
 
-- [x] Create all 9 tool files in `tools/`
-- [x] Delete orphaned root-level `browser.py` and `get_page_state.py`
-- [x] Test `get_page_state`, `click_element`, `type_text`, `hover_element`, `take_screenshot` locally
-- [x] Create GCS bucket `scriptsim-screenshots` in us-central1
-- [x] Install `gcloud` CLI + run `gcloud auth application-default login`
-- [x] Create Firestore database (Native mode, us-central1) in GCP console
-- [x] GCS upload test — `take_screenshot` confirmed writing to `gs://scriptsim-screenshots/`
-- [x] Firestore test — `log_bug` confirmed writing to `scans/test-scan-001/bugs/`
-- [ ] Test `login.py` + `click_element` against demo app (needs Person 3 deploy URL)
+### Person 1
+- [x] Re-run `python test_agent.py mapper https://example.com` — `go_back` works, raw JSON confirmed
+- [x] Test `python test_agent.py persona kid https://example.com` — all 7 tools fired, GCS screenshots confirmed
 - [ ] Set up Cloud Run deployment (session: `person1-cloudrun`)
-- [ ] Grant Cloud Run service account `Storage Object Creator` + `Cloud Datastore User` roles in GCP IAM
+- [ ] Grant Cloud Run service account `Storage Object Creator` + `Cloud Datastore User` IAM roles
+- [ ] Test `login.py` against demo app once Person 3 deploys
 
-## Person 2 — Completed Work
+### Person 2 (done — no pending)
 
-| File | What it does |
-|------|-------------|
-| `schemas/bug_report.py` | Pydantic `BugReport` model with 9 fields, severity 1–5 |
-| `agents/setup_agent.py` | LlmAgent — calls `login` tool, outputs `auth_cookies` to session state |
-| `agents/mapper_agent.py` | LlmAgent — crawls app with `get_page_state` + `click_element`, outputs `feature_map` |
-| `agents/persona_agent.py` | `make_persona_agent(persona)` — creates persona-specific LlmAgent with 6 tools, no schema |
-| `agents/report_agent.py` | `make_report_agent(persona)` — LlmAgent with `output_schema=BugReport`, no tools |
-| `agents/synthesis_agent.py` | LlmAgent — deduplicates bugs, cross-persona severity boost, outputs `deduplicated_bugs` |
-| `agents/eval_agent.py` | LlmAgent — final scoring + ranking, outputs `final_report` JSON |
-| `orchestrator.py` | `run_scan(url)` — SequentialAgent pipeline with ParallelAgent for personas + reports |
+### Person 3 (pending)
+- [ ] Build Flask demo app with 5 planted bugs
+- [ ] Deploy to Railway (or Cloud Run)
+- [ ] Build Next.js dashboard
+- [ ] Build FastAPI `/scan` endpoint
 
-**ADK constraint verified:** `PersonaAgent` has 6 tools + no `output_schema`. `ReportAgent` has `output_schema=BugReport` + zero tools.
-
-**Personas implemented:** kid (8yo), power_user (22yo), parent (45yo), retiree (67yo)
-
-**Pipeline:** SetupAgent → MapperAgent → ParallelAgent(4 personas) → ParallelAgent(4 reports) → SynthesisAgent → EvalAgent
-
-**Untested:** needs Person 3's demo app URL to run end-to-end
+### Full end-to-end test (all three)
+- [ ] Run `python orchestrator.py <demo_app_url>` once Person 3 deploys
+- [ ] Verify bugs appear in Firestore + screenshots in GCS
+- [ ] Review final ranked report JSON

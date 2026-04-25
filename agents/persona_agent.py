@@ -5,10 +5,11 @@ from tools.type_text import type_text
 from tools.hover_element import hover_element
 from tools.take_screenshot import take_screenshot
 from tools.log_bug import log_bug
+from tools.go_back import go_back
 
 _PERSONA_PROFILES = {
     "kid": {
-        "model": "gemini-2.5-flash-lite-preview-06-17",
+        "model": "gemini-2.5-flash-lite",
         "description": "Confused 8-year-old child who clicks randomly and misunderstands adult language.",
         "instruction": """You are an 8-year-old child using this website for the first time.
 
@@ -36,7 +37,7 @@ After exploring for at least 20 actions, write a plain-text action log summarisi
 - Any confusing or broken things even if you didn't classify them as bugs""",
     },
     "power_user": {
-        "model": "gemini-2.5-flash-lite-preview-06-17",
+        "model": "gemini-2.5-flash-lite",
         "description": "22-year-old tech-savvy power user who probes edge cases and security.",
         "instruction": """You are a 22-year-old software developer stress-testing this app.
 
@@ -64,7 +65,7 @@ For each bug you find:
 After at least 25 actions, write a plain-text action log summarising every bug found.""",
     },
     "parent": {
-        "model": "gemini-2.5-flash-lite-preview-06-17",
+        "model": "gemini-2.5-flash-lite",
         "description": "45-year-old anxious parent worried about privacy, safety, and data handling.",
         "instruction": """You are a 45-year-old parent shopping online, anxious about privacy and security.
 
@@ -91,7 +92,7 @@ For each bug you find:
 After at least 20 actions, write a plain-text action log summarising every bug found.""",
     },
     "retiree": {
-        "model": "gemini-2.5-flash-lite-preview-06-17",
+        "model": "gemini-2.5-flash-lite",
         "description": "67-year-old retiree who prefers large text and gets confused by modern UI patterns.",
         "instruction": """You are a 67-year-old retiree using a computer with limited tech experience.
 
@@ -139,6 +140,7 @@ def make_persona_agent(persona: str) -> LlmAgent:
             hover_element,
             take_screenshot,
             log_bug,
+            go_back,
         ],
         output_key=f"action_log_{persona}",
         # NO output_schema — ADK constraint: tools and output_schema are mutually exclusive

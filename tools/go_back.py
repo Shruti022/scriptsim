@@ -1,0 +1,22 @@
+import json
+try:
+    from tools.browser import get_page
+except ImportError:
+    from browser import get_page
+
+
+async def go_back() -> str:
+    """Navigate the browser back to the previous page in history.
+    Use this instead of clicking a 'Back' button — it always works.
+    Returns the new URL after navigating back."""
+    try:
+        page = await get_page()
+        url_before = page.url
+        await page.go_back(timeout=5000, wait_until="networkidle")
+        return json.dumps({
+            "success": True,
+            "previous_url": url_before,
+            "new_url": page.url,
+        })
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "current_url": ""})

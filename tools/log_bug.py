@@ -6,13 +6,13 @@ except ImportError:
     from browser import get_page
 
 
-def log_bug(scan_id: str, persona: str, description: str, severity: int, screenshot_url: str = "") -> str:
+async def log_bug(scan_id: str, persona: str, description: str, severity: int, screenshot_url: str = "") -> str:
     """Log a discovered bug to Firestore during a persona scan.
     severity: 1=cosmetic, 2=minor, 3=moderate, 4=major, 5=critical.
-    persona: one of kid, power_user, parent, retiree, grandma.
+    persona: one of kid, power_user, parent, retiree.
     Returns the Firestore document ID of the logged bug."""
     try:
-        page = get_page()
+        page = await get_page()
         current_url = page.url
 
         from google.cloud import firestore
@@ -31,7 +31,6 @@ def log_bug(scan_id: str, persona: str, description: str, severity: int, screens
             "screenshot_url": screenshot_url,
             "timestamp": int(time.time()),
         })
-
         return json.dumps({
             "success": True,
             "bug_id": bug_ref.id,
@@ -39,8 +38,3 @@ def log_bug(scan_id: str, persona: str, description: str, severity: int, screens
         })
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
-
-
-if __name__ == "__main__":
-    # Dry-run test (no real Firestore call)
-    print("log_bug tool loaded. Requires GOOGLE_APPLICATION_CREDENTIALS to run live.")

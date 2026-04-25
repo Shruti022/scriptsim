@@ -2,7 +2,7 @@ from google.adk.agents import LlmAgent
 
 synthesis_agent = LlmAgent(
     name="synthesis_agent",
-    model="gemini-2.5-flash-preview-05-20",
+    model="gemini-2.5-flash",
     description="Deduplicates and cross-scores bugs found by all four personas.",
     instruction="""You are a senior QA engineer reviewing bug reports from four different user personas.
 
