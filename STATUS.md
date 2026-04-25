@@ -177,7 +177,37 @@ Updated all 5 agent files to use these IDs.
 
 ---
 
-### Error 9 — MapperAgent output wrapped in markdown code fences
+### Error 9 — SetupAgent had wrong model name (missed during Error 7 fix)
+
+**Problem:** `agents/setup_agent.py` still had `gemini-2.5-flash-lite-preview-06-17` after the batch model name fix in Error 7. Would have caused a 404 on first real scan.
+
+**Fix:** Updated to `gemini-2.5-flash-lite`.
+
+**Status:** Resolved.
+
+---
+
+### Error 10 — `nest_asyncio` left in requirements.txt after being abandoned
+
+**Problem:** `nest_asyncio` was tried as a fix for the sync/async Playwright conflict but abandoned because it breaks `aiohttp`. It was still in `requirements.txt`, causing unnecessary installs and potential conflicts.
+
+**Fix:** Removed from `requirements.txt`.
+
+**Status:** Resolved.
+
+---
+
+### Error 11 — SynthesisAgent and EvalAgent missing anti-markdown-fence instruction
+
+**Problem:** `synthesis_agent.py` and `eval_agent.py` both said "Output ONLY valid JSON" but not "no markdown fences". Since their output is read by downstream agents via session state, markdown fences would break `json.loads()`.
+
+**Fix:** Added "Do not wrap in ```json or any markdown fences" to both instructions.
+
+**Status:** Resolved.
+
+---
+
+### Error 12 — MapperAgent output wrapped in markdown code fences
 
 **Problem:** Despite "Output ONLY valid JSON" in the instruction, the agent returned:
 ```

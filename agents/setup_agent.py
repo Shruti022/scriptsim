@@ -3,7 +3,7 @@ from tools.login import login
 
 setup_agent = LlmAgent(
     name="setup_agent",
-    model="gemini-2.5-flash-lite-preview-06-17",
+    model="gemini-2.5-flash-lite",
     description="Logs in to the target app and saves session cookies for other agents.",
     instruction="""You are a setup agent. Your only job is to log in to the target app.
 

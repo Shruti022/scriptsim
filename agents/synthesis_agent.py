@@ -41,6 +41,6 @@ Output format — a JSON array of bug objects:
   }
 ]
 
-Output ONLY valid JSON, nothing else.""",
+Output ONLY raw valid JSON, nothing else. Do not wrap in ```json or any markdown fences.""",
     output_key="deduplicated_bugs",
 )

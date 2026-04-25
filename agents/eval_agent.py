@@ -42,6 +42,6 @@ Your tasks:
   ]
 }
 
-Output ONLY valid JSON, nothing else.""",
+Output ONLY raw valid JSON, nothing else. Do not wrap in ```json or any markdown fences.""",
     output_key="final_report",
 )
