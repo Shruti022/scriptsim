@@ -55,16 +55,18 @@ scriptsim/
 ├── CLAUDE.md              ← you are here
 ├── Dockerfile
 ├── requirements.txt
+├── test_agent.py          ← smoke test: run single agent against any URL
 ├── tools/                 ← Person 1 owns this
 │   ├── __init__.py
-│   ├── browser.py         ← Playwright browser singleton
+│   ├── browser.py         ← Async Playwright browser singleton
 │   ├── get_page_state.py
 │   ├── click_element.py
 │   ├── type_text.py
 │   ├── hover_element.py
 │   ├── take_screenshot.py
 │   ├── log_bug.py
-│   └── login.py
+│   ├── login.py
+│   └── go_back.py         ← browser back navigation
 ├── agents/                ← Person 2 owns this
 │   ├── setup_agent.py
 │   ├── mapper_agent.py
@@ -80,13 +82,15 @@ scriptsim/
 └── api/                   ← Person 3 owns this
 
 ## Playwright rules (always follow these)
-- Use sync Playwright (playwright.sync_api) — ADK tools must be sync def, not async def
+- Use ASYNC Playwright (playwright.async_api) — ADK runner is async, sync Playwright crashes inside asyncio
+- All tool functions must be `async def`, all page calls must be `await`-ed
 - Always launch with: args=["--no-sandbox", "--disable-dev-shm-usage"]
 - Always wait_for_load_state("networkidle") after navigation
 - Always wrap tool calls in try/except — never let a tool crash the agent
 - get_page_state() must return valid JSON string, never raise exceptions
 - Selectors: prefer text-based ("button:has-text('Like')") over CSS selectors
-- Screenshots: save to /tmp/ first, then upload to GCS, return URL
+- Screenshots: save to /tmp/ first, then upload to GCS, return gs:// URI (NOT public URL)
+- Use go_back() tool for browser back navigation — never try to click a "Back" button
 
 ## GCP config
 - Project: agentic-fp-scriptsim
@@ -106,11 +110,30 @@ cd tools/
 python get_page_state.py  # should print JSON of current page
 python click_element.py "Like"  # should click and confirm
 
+## Local setup (required before running anything)
+1. Install dependencies: `pip install -r requirements.txt`
+2. Install Chromium: `python -m playwright install chromium`
+3. Create `.env` in project root:
+   ```
+   GOOGLE_GENAI_USE_VERTEXAI=1
+   GOOGLE_CLOUD_PROJECT=agentic-fp-scriptsim
+   GOOGLE_CLOUD_LOCATION=us-central1
+   ```
+4. Authenticate with GCP: `gcloud auth application-default login`
+
+## Smoke tests (verify everything works)
+```
+python test_agent.py mapper https://example.com    # MapperAgent
+python test_agent.py persona kid https://example.com  # kid PersonaAgent
+```
+
 ## What is done
-- tools/ — all 9 Playwright tools, tested against live GCP (Person 1)
+- tools/ — all 10 async Playwright tools, tested against live GCP (Person 1)
 - agents/ + schemas/ + orchestrator.py — full ADK pipeline (Person 2)
-- GCS bucket scriptsim-screenshots — created, tested
-- Firestore (default) database — created, tested
+- GCS bucket scriptsim-screenshots — created, tested (screenshots upload confirmed)
+- Firestore (default) database — created, tested (bug writes confirmed)
+- MapperAgent smoke test — PASSED vs example.com
+- PersonaAgent [kid] smoke test — PASSED, all 7 tools fired, GCS uploads confirmed
 - GitHub: https://github.com/Shruti022/scriptsim
 
 ## What is pending
