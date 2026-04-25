@@ -3,7 +3,10 @@ get_page_state — called by PersonaAgent at the start of every turn.
 Returns a clean JSON summary of what's currently visible on screen.
 """
 import json
-from tools.browser import get_page
+try:
+    from tools.browser import get_page
+except ImportError:
+    from browser import get_page
 
 
 def get_page_state() -> str:
@@ -102,9 +105,11 @@ def get_page_state() -> str:
 
 
 if __name__ == "__main__":
-    # Quick test — run: python tools/get_page_state.py
     import sys
-    from tools.browser import start_browser, close_browser
+    try:
+        from tools.browser import start_browser, close_browser
+    except ImportError:
+        from browser import start_browser, close_browser
 
     url = sys.argv[1] if len(sys.argv) > 1 else "https://example.com"
     print(f"Testing get_page_state on {url}...")
