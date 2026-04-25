@@ -113,13 +113,32 @@ python click_element.py "Like"  # should click and confirm
 ## Local setup (required before running anything)
 1. Install dependencies: `pip install -r requirements.txt`
 2. Install Chromium: `python -m playwright install chromium`
-3. Create `.env` in project root:
+3. Create `.env` in project root (get this file from Shruti — never commit it):
    ```
    GOOGLE_GENAI_USE_VERTEXAI=1
    GOOGLE_CLOUD_PROJECT=agentic-fp-scriptsim
    GOOGLE_CLOUD_LOCATION=us-central1
    ```
 4. Authenticate with GCP: `gcloud auth application-default login`
+   - Use the Gmail that Shruti added to the GCP project IAM
+   - If you get a permission error, ask Shruti to add your Gmail to IAM
+
+## GCP access (who needs it and how to get it)
+All teammates share the same GCP project: `agentic-fp-scriptsim`
+
+**Who needs GCP access:**
+- Person 1 (Shruti) — already owner
+- Person 2 — only if running scans locally (agents are done)
+- Person 3 — NOT needed for building Flask app; only needed for full end-to-end scan testing
+
+**How Shruti adds a teammate (GCP Console → IAM & Admin → IAM → Grant Access):**
+1. New principals: enter their Gmail
+2. Add role: `Vertex AI User`
+3. Add role: `Storage Object Creator`
+4. Add role: `Cloud Datastore User`
+5. Save — no IAM conditions needed
+
+**Teammate then runs:** `gcloud auth application-default login` with that Gmail
 
 ## Smoke tests (verify everything works)
 ```
