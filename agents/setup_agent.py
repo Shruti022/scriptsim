@@ -16,7 +16,8 @@ Steps:
    Do not add any other text — just the cookies JSON array.
 3. If login fails, output: LOGIN_FAILED
 
-The output will be stored as session cookies for the persona agents.""",
+Once logged in, simply output: "LOGIN_SUCCESS. Cookies saved." followed by the JSON cookies. Do not add any conversational text about what you can or cannot do.""",
+
     tools=[login],
     output_key="auth_cookies",
 )

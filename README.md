@@ -81,16 +81,6 @@ scriptsim/
 
 ---
 
-## Team
-
-| Person | Owns | Status |
-|--------|------|--------|
-| Person 1 (Shruti) | `tools/`, Dockerfile, Cloud Run | Done |
-| Person 2 | `agents/`, `schemas/`, `orchestrator.py` | Done |
-| Person 3 | `demo_app/`, `dashboard/`, `api/` | In progress |
-
----
-
 ## GCP Infrastructure
 
 | Resource | Config | Status |
@@ -117,7 +107,27 @@ python -m playwright install chromium
 
 > **Note:** `requirements.txt` pins `playwright==1.44.0` for Docker compatibility. If you're on Python 3.14 locally and get a `greenlet` build error, run `pip install "playwright>=1.50.0"` to override it. Always use `python -m playwright install chromium` (not just `playwright install chromium`) to install the browser for the correct version.
 
-### Create `.env` file (not committed — share privately with teammates)
+## Quick Start (Local Run)
+
+The easiest way to run ScriptSim locally is using the automated startup script:
+
+```powershell
+python start.py
+```
+
+This single command starts the **Demo App**, **FastAPI Backend**, and **Next.js Dashboard** simultaneously.
+
+### Access the Dashboard
+Once the script is running, visit: **[http://localhost:3000](http://localhost:3000)**
+
+- Select **"Demo App"** for a local test.
+- Pick your **AI Personas**.
+- Enable **"Smoke Test Mode"** for a fast (3-minute) demo.
+- Click **"Run Parallel Scan"** and watch the **Live Activity Console**!
+
+---
+
+### Create `.env` file
 
 ```
 GOOGLE_GENAI_USE_VERTEXAI=1
@@ -137,8 +147,6 @@ gcloud auth application-default set-quota-project agentic-fp-scriptsim
 > - `Vertex AI User` — to call the Gemini API (every agent call needs this)
 > - `Storage Object Creator` — to upload screenshots to GCS (`take_screenshot.py`)
 > - `Cloud Datastore User` — to write bug reports to Firestore (`log_bug.py`)
->
-> Person 3 does NOT need GCP access to build the Flask demo app.
 
 ### Verify setup with smoke tests
 
@@ -159,7 +167,7 @@ python orchestrator.py https://<demo-app-url>
 
 ## Demo App
 
-- **URL:** TBD (Person 3 deploying to Railway)
+- **URL:** Local (run `python demo_app/app.py` on port 5000) or TBD (deploying to Railway)
 - **Test credentials:** `test@scriptsim.com` / `TestPass123!`
 - **Planted bugs:** XSS in search, silent cart failure, crash at 10+ items, confusing error message, frozen checkout button
 
@@ -176,3 +184,16 @@ python orchestrator.py https://<demo-app-url>
 **ADK constraint: tools XOR output_schema** — Gemini does not support both on the same agent. PersonaAgents have tools and no schema. ReportAgents have `output_schema=BugReport` and no tools.
 
 **State passing via `output_key`** — Agents do not return values directly. Each agent writes to session state via `output_key`. Downstream agents read via `{variable_name}` in their instruction templates.
+---
+
+## Class Concepts Used
+
+This project implements the following concepts covered in class:
+
+1. **Multi-Agent Orchestration**: Uses a `SequentialAgent` to coordinate a complex 5-phase pipeline.
+
+2. **Parallel Agentic Loops**: Uses a `ParallelAgent` to run multiple adversarial personas simultaneously, each with their own autonomous reasoning and tool-calling loop.
+
+3. **Tool Calling & Browser Automation**: Agents use a suite of custom-built Playwright tools to interact with the DOM, handle navigation, and capture visual evidence.
+
+4. **Structured Synthesis**: Uses a high-capability model (Gemini 2.5 Flash) to deduplicate and rank raw findings from multiple lower-capability agents (Flash-Lite).

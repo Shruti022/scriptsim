@@ -12,7 +12,14 @@ async def click_element(selector: str) -> str:
     try:
         page = await get_page()
         url_before = page.url
-        await page.click(f"text={selector}", timeout=3000)
+        
+        # Try 1: Exact or partial text match (Playwright's 'text=' is smart)
+        try:
+            await page.click(f"text={selector}", timeout=3000)
+        except Exception:
+            # Try 2: Case-insensitive 'has-text' which is more flexible for partials
+            await page.click(f"*:has-text('{selector}')", timeout=3000)
+
         await page.wait_for_load_state("networkidle", timeout=5000)
         return json.dumps({
             "success": True,
@@ -23,7 +30,9 @@ async def click_element(selector: str) -> str:
         try:
             page = await get_page()
             url_before = page.url
-            await page.click(f"[aria-label='{selector}']", timeout=3000)
+            # Try 3: Aria-label match (escape single quotes)
+            escaped = selector.replace("'", "\\'")
+            await page.click(f"[aria-label*='{escaped}' i]", timeout=3000)
             await page.wait_for_load_state("networkidle", timeout=5000)
             return json.dumps({
                 "success": True,
@@ -32,3 +41,4 @@ async def click_element(selector: str) -> str:
             })
         except Exception as e:
             return json.dumps({"success": False, "error": str(e)})
+

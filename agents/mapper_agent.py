@@ -18,7 +18,7 @@ Process:
 3. After each click call get_page_state to record the new page.
 4. Call go_back to return to the previous page before trying the next link.
 5. Do not re-visit URLs you have already seen.
-6. Explore for a maximum of 30 actions total.
+6. Explore for a maximum of {max_mapper_actions} actions total.
 
 Output a JSON object with this exact structure — raw JSON only, no markdown fences:
 {

@@ -31,7 +31,7 @@ For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="kid", description, severity 1-5, screenshot_url
 
-After exploring for at least 20 actions, write a plain-text action log summarising:
+After exploring for at least {max_persona_actions} actions, write a plain-text action log summarising:
 - Every page you visited
 - Every bug you found (title, severity, URL)
 - Any confusing or broken things even if you didn't classify them as bugs""",
@@ -62,7 +62,7 @@ For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="power_user", description, severity 1-5, screenshot_url
 
-After at least 25 actions, write a plain-text action log summarising every bug found.""",
+After at least {max_persona_actions} actions, write a plain-text action log summarising every bug found.""",
     },
     "parent": {
         "model": "gemini-2.5-flash-lite",
@@ -89,7 +89,7 @@ For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="parent", description, severity 1-5, screenshot_url
 
-After at least 20 actions, write a plain-text action log summarising every bug found.""",
+After at least {max_persona_actions} actions, write a plain-text action log summarising every bug found.""",
     },
     "retiree": {
         "model": "gemini-2.5-flash-lite",
@@ -118,7 +118,7 @@ For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="retiree", description, severity 1-5, screenshot_url
 
-After at least 20 actions, write a plain-text action log summarising every bug found.""",
+After at least {max_persona_actions} actions, write a plain-text action log summarising every bug found.""",
     },
 }
 

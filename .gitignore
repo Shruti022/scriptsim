@@ -1,11 +1,28 @@
-__pycache__/
-*.pyc
-*.pyo
+# Dashboard build artifacts
+node_modules/
+.next/
+out/
+build/
+
+# Local env files
 .env
-.env.*
-*.egg-info/
-.venv/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 venv/
-.claude/
+.venv/
+
+# Secrets
 *credentials*.json
 *service_account*.json
+
+# Misc
+.DS_Store
+.claude/
+.gemini/
