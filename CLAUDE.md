@@ -170,23 +170,28 @@ All teammates use the shared GCP project: `agentic-fp-scriptsim`
 ## Smoke tests (verify tools + agents work)
 ```
 python test_agent.py mapper https://example.com
-python test_agent.py persona kid https://example.com
+python test_agent.py persona kid http://localhost:5000
 ```
-Both confirmed PASSING as of 2026-04-25.
+- MapperAgent vs example.com: PASS (2026-04-25)
+- Kid persona vs demo app (localhost:5000): PASS (2026-04-26) — landed on home page, found Bug 2 (silent cart), screenshots uploaded to GCS
+
+Note: `test_agent.py persona` pre-logs in before running the persona (mirrors SetupAgent in the real pipeline). Requires the demo app to be running (`python start.py` or `python demo_app/app.py`).
 
 ## What is done
 - tools/ — all 10 async Playwright tools, per-task browser isolation implemented
 - login.py — stores cookies globally so all parallel persona contexts start logged in
 - agents/ + schemas/ + orchestrator.py — full ADK pipeline with smoke test + persona selection
+- setup_agent.py — imperative instruction forces immediate login tool call (no more LLM refusals)
+- persona_agent.py — _LOGIN_PREAMBLE login fallback in all 4 personas + max action limit enforced
+- test_agent.py — pre-login step + max_persona_actions in session state (KeyError fixed)
 - GCS bucket + Firestore — created and tested
 - demo_app/ — Flask shop with 5 planted bugs (Person 3)
 - dashboard/ — Next.js UI with live activity console (Person 3)
 - api/ — FastAPI POST /scan endpoint with background task runner (Person 3)
 - start.py — one-command launcher for all 3 services
-- First scan run against demo app — SetupAgent + kid persona confirmed working
 
 ## What is pending
-- Full 4-persona parallel scan end-to-end test (browser isolation fix just deployed)
+- Full 4-persona parallel scan end-to-end test (run via dashboard, verify all 5 bugs found)
 - Cloud Run deployment — Person 1 (session: person1-cloudrun)
 - Deploy demo app to Railway/Cloud Run for public URL
 

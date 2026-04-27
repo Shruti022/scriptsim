@@ -160,10 +160,15 @@ Test credentials: `test@scriptsim.com` / `TestPass123!`
 
 ```bash
 python test_agent.py mapper https://example.com
-python test_agent.py persona kid https://example.com
+python test_agent.py persona kid http://localhost:5000
 ```
 
-Both confirmed PASSING as of 2026-04-25.
+| Test | Result | Date |
+|------|--------|------|
+| MapperAgent vs example.com | PASS | 2026-04-25 |
+| Kid persona vs demo app (localhost:5000) | PASS — found Bug 2 (silent cart), screenshots to GCS | 2026-04-26 |
+
+Note: persona smoke test requires demo app running (`python start.py` or `python demo_app/app.py`). The test pre-logs in automatically before the persona starts.
 
 ---
 
@@ -198,6 +203,12 @@ Both confirmed PASSING as of 2026-04-25.
 
 | Person | Owns | Status |
 |--------|------|--------|
-| Person 1 (Shruti) | `tools/`, Dockerfile, Cloud Run | Done — browser isolation shipped |
+| Person 1 (Shruti) | `tools/`, `Dockerfile`, Cloud Run | Done — browser isolation + agent reliability fixes shipped |
 | Person 2 | `agents/`, `schemas/`, `orchestrator.py` | Done |
 | Person 3 | `demo_app/`, `dashboard/`, `api/`, `start.py` | Done |
+
+## Known Limitations
+
+- **Action limit is a soft limit** — `max_persona_actions` in persona instructions is a strong hint to the LLM, not a hard stop. LLMs honour it approximately. Full scans may run slightly longer than the target action count.
+- **`log_bug` not always called** — Personas (especially the confused kid) sometimes describe bugs in their action log text rather than calling `log_bug`. The ReportAgent downstream converts the action log to structured bugs regardless.
+- **Cloud Run not yet deployed** — All services run locally. Public URL for demo app is pending Person 3's Railway/Cloud Run deployment.

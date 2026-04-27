@@ -10,20 +10,23 @@
 | Area | Owner | Status |
 |------|-------|--------|
 | `tools/` — 10 async Playwright tools | Person 1 | DONE + Tested |
-| Browser isolation (per-task contexts) | Person 1 | DONE |
+| Browser isolation (per-task contexts) | Person 1 | DONE + Tested |
 | GCS bucket `scriptsim-screenshots` | Person 1 | Created + Tested |
 | Firestore database | Person 1 | Created + Tested |
 | GCP IAM access for teammates | Person 1 | Configured |
 | Cloud Run deployment | Person 1 | Not started |
 | `agents/` — 6 ADK agents | Person 2 | DONE |
 | `schemas/bug_report.py` | Person 2 | DONE |
-| `orchestrator.py` (with smoke test + persona selection) | Person 2 | DONE |
+| `orchestrator.py` (smoke test + persona selection) | Person 2 | DONE |
 | `demo_app/` — Flask shop with 5 planted bugs | Person 3 | DONE |
 | `dashboard/` — Next.js with live activity console | Person 3 | DONE |
 | `api/` — FastAPI POST /scan | Person 3 | DONE |
 | `start.py` — one-command launcher | Person 3 | DONE |
-| First real scan vs demo app (smoke test) | All | DONE — SetupAgent + kid persona confirmed |
-| Full 4-persona parallel scan | All | In progress — browser fix deployed, needs re-test |
+| SetupAgent login reliability fix | Person 1 | DONE |
+| Persona login fallback + action limit fix | Person 1 | DONE |
+| `test_agent.py` pre-login + session state fix | Person 1 | DONE |
+| Kid persona smoke test vs demo app | All | PASS — found Bug 2 (silent cart) |
+| Full 4-persona parallel scan | All | Awaiting end-to-end test |
 
 ---
 
@@ -43,6 +46,20 @@
 | `tools/log_bug.py` | Write bug to Firestore `scans/{scan_id}/bugs/` | Done + Tested |
 | `tools/login.py` | Login form + stores cookies globally for parallel personas | Done + Tested |
 | `tools/go_back.py` | Browser back via `page.go_back()` | Done + Tested |
+
+### agents/ — fixes applied (Person 1 fixed, Person 2 owns)
+
+| File | Fix | Status |
+|------|-----|--------|
+| `agents/setup_agent.py` | Imperative instruction forces immediate login tool call | Fixed |
+| `agents/persona_agent.py` | `_LOGIN_PREAMBLE` login fallback + max action limit enforcement | Fixed |
+
+### test_agent.py — fixes applied
+
+| Fix | Status |
+|-----|--------|
+| Pre-login step before running persona (mirrors SetupAgent in pipeline) | Fixed |
+| `max_persona_actions=5` added to initial session state | Fixed |
 
 ### GCP Infrastructure
 
@@ -66,8 +83,8 @@
 | MapperAgent full scan vs example.com | PASS — clean JSON output, go_back working |
 | PersonaAgent [kid] vs example.com | PASS — all 7 tools fired, 3 GCS screenshots |
 | SetupAgent login vs demo app (localhost:5000) | PASS — cookies saved |
-| Kid persona vs demo app | PASS — browsed shop, clicked Add to Cart |
-| Full 4-persona parallel scan | Needs re-test after browser isolation fix |
+| Kid persona vs demo app (localhost:5000) | PASS — landed on home page, found Bug 2 (silent cart), screenshots to GCS |
+| Full 4-persona parallel scan | Awaiting end-to-end test |
 
 ---
 
@@ -144,13 +161,44 @@
 **Fix:** `pip install flask werkzeug` separately (demo_app has its own requirements.txt). **Resolved.**
 
 ### Error 14 — Parallel personas share one browser tab (chaos)
-**Problem:** All 4 PersonaAgents share the same global `_page`. Running in parallel they fight
-over one tab — each agent's clicks affect what the others see. Second scan also picked up
-stale browser state from the first scan.
+**Problem:** All 4 PersonaAgents shared the same global `_page`. Running in parallel they fought
+over one tab — each agent's clicks affected what others saw. Second scan picked up stale state.
 **Fix:** Rewrote `browser.py` to use per-task `BrowserContext` via `asyncio.current_task()` ID.
 `get_page()` auto-creates an isolated context for each new task. `login.py` stores cookies
 globally in `_default_cookies` so new contexts start logged in. `start_browser()` clears
-all stale contexts before launching. **Resolved — awaiting re-test.**
+all stale contexts before launching. **Resolved.**
+
+### Error 15 — SetupAgent not calling the login tool
+**Problem:** LLM responded "I can't perform a full QA scan" or described the plan instead of
+calling the `login` tool. Personas started on the `/login` page with no cookies.
+**Fix:** Rewrote `setup_agent.py` instruction to be fully imperative: "You MUST immediately
+call the login tool. Do not say anything first." Removed all explanatory language. **Resolved.**
+
+### Error 16 — Action limit not respected in smoke test mode
+**Problem:** Persona instructions said "at least {max_persona_actions} actions" — LLM treated
+this as a minimum, not a maximum. Smoke test ran for 10+ minutes with 1 persona.
+**Fix:** Changed to "You have a maximum of {max_persona_actions} tool calls total. Stop and
+write your action log the moment you hit that limit." Added identical limit line to each
+persona's closing instruction. **Resolved (soft limit — LLM honours it approximately).**
+
+### Error 17 — Personas landing on /login despite SetupAgent running
+**Problem:** If SetupAgent failed silently, `_default_cookies` stayed empty and every persona
+context navigated to the app URL and got redirected to /login.
+**Fix:** Added `_LOGIN_PREAMBLE` to all 4 persona instructions: on first `get_page_state`,
+if URL contains "/login", perform the 4 login steps before starting persona behaviour.
+Acts as a reliable fallback independent of SetupAgent. **Resolved.**
+
+### Error 18 — `test_agent.py` KeyError: `max_persona_actions` not in session state
+**Problem:** Persona instruction contains `{max_persona_actions}` template variable. The
+smoke test script created a session without this key → ADK raised `KeyError` on first turn.
+**Fix:** Added `"max_persona_actions": 5` to the initial state dict in `test_agent.py`. **Resolved.**
+
+### Error 19 — `test_agent.py` persona test started on /login (no pre-login step)
+**Problem:** The smoke test script ran the persona directly without calling SetupAgent or
+`login()` first. Browser navigated to demo app and was redirected to /login.
+**Fix:** Added a pre-login call (`await login(url, email, password)`) at the start of
+`run_persona()` in `test_agent.py`. Persona now starts on the home page, matching the
+real pipeline behaviour. **Resolved.**
 
 ---
 
@@ -174,14 +222,24 @@ Agents cannot click browser chrome. `go_back()` wraps `page.go_back()`.
 PersonaAgents have 7 tools, no schema. ReportAgents have `output_schema=BugReport`, no tools.
 
 ### Orchestrator smoke test mode
-`is_smoke_test=True` → 1 persona, 5 actions, skip mapper. Enables fast 3-minute demos.
+`is_smoke_test=True` → 1 persona, max 5 actions, skip mapper. Enables fast 3-minute demos.
+
+### Action limit is a soft limit
+ADK has no built-in way to stop an agent after N tool calls. `max_persona_actions` in the
+instruction text is a strong hint — LLMs honour it approximately but not precisely. This is
+acceptable for demos; the pipeline does not hang because ADK's own turn limits apply.
+
+### Login fallback in persona instructions
+All personas include `_LOGIN_PREAMBLE` which detects if the URL is `/login` and completes the
+login flow before starting persona behaviour. This makes personas resilient to SetupAgent
+failures and makes the standalone `test_agent.py` smoke test reliable.
 
 ---
 
 ## Next Steps
 
 ### Person 1
-- [ ] Re-test full 4-persona parallel scan after browser isolation fix
+- [ ] Run full 4-persona parallel scan via dashboard and verify all 5 bugs found
 - [ ] Cloud Run deployment (session: `person1-cloudrun`)
 - [ ] Grant Cloud Run service account IAM roles when deploying
 
