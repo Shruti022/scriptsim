@@ -67,9 +67,9 @@ def _save_logs():
     # ── Agent log ────────────────────────────────────────────────────────────
     agent_log_path = os.path.join(LOGS_DIR, f"agent_log_{_current_scan_id}.txt")
     try:
-        with open(agent_log_path, "w") as f:
+        with open(agent_log_path, "w", encoding="utf-8") as f:
             f.write("\n".join(_agent_log_lines) + "\n")
-        print(f"\n[logs] Agent log saved → {agent_log_path}")
+        print(f"\n[logs] Agent log saved -> {agent_log_path}")
     except Exception as e:
         print(f"[logs] Could not save agent log: {e}")
 
@@ -107,9 +107,9 @@ def _save_logs():
 
         report_text = "\n".join(lines)
         print(report_text)
-        with open(token_path, "w") as f:
+        with open(token_path, "w", encoding="utf-8") as f:
             f.write(report_text + "\n")
-        print(f"[logs] Token report saved → {token_path}")
+        print(f"[logs] Token report saved -> {token_path}")
     except Exception as e:
         print(f"[logs] Could not save token report: {e}")
 
@@ -162,9 +162,9 @@ def _build_pipeline(personas: list[str], skip_mapper: bool = False) -> Sequentia
             description="Selected personas explore the app simultaneously.",
             sub_agents=persona_agents,
         ),
-        ParallelAgent(
-            name="report_parallel",
-            description="ReportAgents convert action logs to structured BugReports.",
+        SequentialAgent(
+            name="report_sequential",
+            description="ReportAgents convert action logs to structured BugReports (sequential to avoid rate limits).",
             sub_agents=report_agents,
         ),
         synthesis_agent,
@@ -205,8 +205,8 @@ async def run_scan(
         skip_mapper = True
     else:
         max_mapper_actions = 20
-        max_persona_actions = 15
-        skip_mapper = False
+        max_persona_actions = 7
+        skip_mapper = True  # mapper loops on this app — skip until fixed
 
     if scan_id is None:
         scan_id = str(uuid.uuid4())
@@ -271,7 +271,7 @@ async def run_scan(
         session_id=session.id,
         new_message=types.Content(
             role="user",
-            parts=[types.Part(text=f"Run full QA scan on {target_url}. Scan ID: {scan_id}")]
+            parts=[types.Part(text="Begin.")]
         ),
     ):
         setup_events.append(event)
