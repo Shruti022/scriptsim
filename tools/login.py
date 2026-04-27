@@ -1,13 +1,14 @@
 import json
 try:
-    from tools.browser import get_page
+    from tools.browser import get_page, inject_cookies
 except ImportError:
-    from browser import get_page
+    from browser import get_page, inject_cookies
 
 
 async def login(url: str, email: str, password: str) -> str:
     """Navigate to a login page, fill credentials, and submit the form.
-    Returns session cookies on success — SetupAgent saves these to Firestore."""
+    On success, stores cookies globally so every parallel persona context
+    starts logged in automatically."""
     try:
         page = await get_page()
         await page.goto(url)
@@ -28,6 +29,10 @@ async def login(url: str, email: str, password: str) -> str:
         await page.wait_for_load_state("networkidle", timeout=10000)
 
         cookies = await page.context.cookies()
+
+        # Store cookies globally — new persona contexts will get them injected
+        await inject_cookies(cookies)
+
         return json.dumps({
             "success": True,
             "current_url": page.url,
