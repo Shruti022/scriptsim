@@ -2,25 +2,37 @@
 
 ## What this project is
 ScriptSim deploys adversarial AI personas (confused 8yo kid, 22yo power user,
-45yo anxious parent, 67yo retiree, 82yo grandma) to test web products in parallel.
+45yo anxious parent, 67yo retiree) to test web products in parallel.
 Each persona explores the product in a real browser, finds bugs the owner never
 thought to test for, and produces a ranked severity report with screenshots.
 
 ## Tech stack (locked — do not change)
 - **Agent framework**: Google ADK (google-cloud-adk)
-- **LLM**: Gemini 2.5 Flash-Lite for PersonaAgent/MapperAgent,
-           Gemini 2.5 Flash for SynthesisAgent/EvalAgent
-- **Browser**: Playwright + Chromium inside Docker
-- **Infra**: Cloud Run (GCP), Firestore (state), Cloud Storage (screenshots)
-- **Frontend**: Next.js on Firebase Hosting
-- **API**: FastAPI
+- **LLM**: Gemini 2.5 Flash-Lite for PersonaAgent/MapperAgent/SetupAgent,
+           Gemini 2.5 Flash for ReportAgent/SynthesisAgent/EvalAgent
+- **Browser**: Playwright + Chromium (async)
+- **Infra**: Cloud Run (GCP), Firestore (state + live activity), Cloud Storage (screenshots)
+- **Frontend**: Next.js dashboard (localhost:3000)
+- **API**: FastAPI (localhost:8000)
+- **Demo app**: Flask (localhost:5000)
 
 ## Architecture (5 phases, sequential)
-1. SetupAgent — logs in, saves cookies to Firestore
-2. MapperAgent — crawls product, builds feature map
-3. ParallelAgent — runs 4 PersonaAgents simultaneously, zero shared state
-4. ReportAgent × 4 — converts action logs to BugReport Pydantic schema
+1. SetupAgent — logs in, cookies stored globally for all persona contexts
+2. MapperAgent — crawls product, builds feature map (skipped in smoke test mode)
+3. ParallelAgent — runs persona agents simultaneously, each in isolated browser context
+4. ReportAgent × N — converts action logs to BugReport Pydantic schema
 5. SynthesisAgent + EvalAgent — dedup, cross-persona scoring, severity 1-5
+
+## Run everything locally with one command
+```
+python start.py
+```
+Opens: Demo App (port 5000) + API (port 8000) + Dashboard (port 3000)
+Then visit http://localhost:3000 → select Demo App → Run Parallel Scan
+
+## Scan modes
+- **Smoke Test Mode** (checkbox in dashboard): 1 persona, 5 actions, skip mapper — fast demo (~3 min)
+- **Full Scan**: all selected personas, 15 actions each, with mapper — thorough (~15 min)
 
 ## Critical ADK constraint
 output_schema and tools are MUTUALLY EXCLUSIVE in Gemini.
@@ -32,6 +44,13 @@ Never put both on the same agent.
 Agents pass data through session state using output_key, NOT return values.
 PersonaAgent writes to state["action_log_kid"]
 ReportAgent reads via {action_log_kid} in its instruction template.
+
+## Browser isolation (critical — how parallel personas work)
+Each asyncio Task (persona) gets its own isolated BrowserContext via `_contexts` dict
+keyed by `asyncio.current_task()` ID. login.py stores cookies globally in `_default_cookies`
+after SetupAgent logs in — new persona contexts inject these cookies automatically so
+every persona starts already logged in at the target URL.
+Never use a single global `_page` — that was the old broken design.
 
 ## Person 1 owns (browser layer)
 - tools/ directory — all Playwright tool functions
@@ -48,41 +67,48 @@ ReportAgent reads via {action_log_kid} in its instruction template.
 - demo_app/ — Flask app with 5 planted bugs
 - dashboard/ — Next.js frontend
 - api/ — FastAPI scan trigger endpoints
-- business_doc/
 
 ## Folder structure
 scriptsim/
 ├── CLAUDE.md              ← you are here
 ├── Dockerfile
 ├── requirements.txt
+├── start.py               ← starts all 3 services with one command
 ├── test_agent.py          ← smoke test: run single agent against any URL
+├── orchestrator.py        ← Person 2 owns this
 ├── tools/                 ← Person 1 owns this
 │   ├── __init__.py
-│   ├── browser.py         ← Async Playwright browser singleton
+│   ├── browser.py         ← Per-task async browser contexts (isolated per persona)
 │   ├── get_page_state.py
 │   ├── click_element.py
 │   ├── type_text.py
 │   ├── hover_element.py
-│   ├── take_screenshot.py
-│   ├── log_bug.py
-│   ├── login.py
+│   ├── take_screenshot.py ← uploads to gs://scriptsim-screenshots/
+│   ├── log_bug.py         ← writes to Firestore scans/{scan_id}/bugs/
+│   ├── login.py           ← fills login form + stores cookies globally
 │   └── go_back.py         ← browser back navigation
 ├── agents/                ← Person 2 owns this
-│   ├── setup_agent.py
-│   ├── mapper_agent.py
-│   ├── persona_agent.py
-│   ├── report_agent.py
-│   ├── synthesis_agent.py
-│   └── eval_agent.py
+│   ├── setup_agent.py     ← model: gemini-2.5-flash-lite
+│   ├── mapper_agent.py    ← model: gemini-2.5-flash-lite
+│   ├── persona_agent.py   ← model: gemini-2.5-flash-lite, uses {max_persona_actions}
+│   ├── report_agent.py    ← model: gemini-2.5-flash, output_schema=BugReport
+│   ├── synthesis_agent.py ← model: gemini-2.5-flash
+│   └── eval_agent.py      ← model: gemini-2.5-flash
 ├── schemas/               ← Person 2 owns this
 │   └── bug_report.py
-├── orchestrator.py        ← Person 2 owns this
 ├── demo_app/              ← Person 3 owns this
+│   ├── app.py             ← Flask shop with 5 planted bugs
+│   └── requirements.txt   ← Flask==3.0.3, Werkzeug==3.0.3
 ├── dashboard/             ← Person 3 owns this
+│   ├── app/page.js        ← main UI: URL input, persona picker, smoke test toggle
+│   ├── app/api/activity/  ← live activity feed from Firestore
+│   ├── app/api/bugs/      ← bug report display
+│   └── package.json
 └── api/                   ← Person 3 owns this
+    └── main.py            ← FastAPI POST /scan, GET /health
 
 ## Playwright rules (always follow these)
-- Use ASYNC Playwright (playwright.async_api) — ADK runner is async, sync Playwright crashes inside asyncio
+- Use ASYNC Playwright (playwright.async_api) — ADK runner is async, sync Playwright crashes
 - All tool functions must be `async def`, all page calls must be `await`-ed
 - Always launch with: args=["--no-sandbox", "--disable-dev-shm-usage"]
 - Always wait_for_load_state("networkidle") after navigation
@@ -91,81 +117,79 @@ scriptsim/
 - Selectors: prefer text-based ("button:has-text('Like')") over CSS selectors
 - Screenshots: save to /tmp/ first, then upload to GCS, return gs:// URI (NOT public URL)
 - Use go_back() tool for browser back navigation — never try to click a "Back" button
+- NEVER use a single global _page — use get_page() which returns per-task context
 
 ## GCP config
 - Project: agentic-fp-scriptsim
 - Region: us-central1
-- Firestore: (default) database, Native mode, collection scans/{scan_id}/bugs/
+- Firestore: (default) database, Native mode
+  - scans/{scan_id}/bugs/ — bug reports
+  - scans/{scan_id}/activity/ — live agent activity for dashboard
 - GCS bucket: scriptsim-screenshots (us-central1, no public access — use gs:// URIs)
 - Cloud Run service: scriptsim-worker (not yet deployed)
 
-## Demo app URL (Person 3 deploys this)
-- URL: TBD (Railway deployment, update this when available)
+## Demo app (runs locally on port 5000)
 - Test credentials: email=test@scriptsim.com, password=TestPass123!
-- 5 planted bugs: XSS in search, silent cart, crash at 10+ items,
-                  idiom error message, frozen checkout button
-
-## How to run tools locally for testing
-cd tools/
-python get_page_state.py  # should print JSON of current page
-python click_element.py "Like"  # should click and confirm
+- 5 planted bugs:
+  1. XSS in search — query rendered with |safe filter
+  2. Silent cart failure — Super Gadget returns success but isn't added
+  3. Crash at 10+ items — ValueError → 500 error
+  4. Confusing error message — "chickens have come home to roost"
+  5. Frozen checkout button — permanently disabled
 
 ## Local setup (required before running anything)
-1. Install dependencies: `pip install -r requirements.txt`
-2. Install Chromium: `python -m playwright install chromium`
-3. Create `.env` in project root (get this file from Shruti — never commit it):
+1. Install Python deps: `pip install -r requirements.txt`
+2. Install Flask for demo app: `pip install flask werkzeug`
+3. Install Chromium: `python -m playwright install chromium`
+4. Install Node.js (for dashboard): https://nodejs.org
+5. Create `.env` in project root (get from Shruti — never commit):
    ```
    GOOGLE_GENAI_USE_VERTEXAI=1
    GOOGLE_CLOUD_PROJECT=agentic-fp-scriptsim
    GOOGLE_CLOUD_LOCATION=us-central1
    ```
-4. Authenticate with GCP: `gcloud auth application-default login`
-   - Use the Gmail that Shruti added to the GCP project IAM
-   - If you get a permission error, ask Shruti to add your Gmail to IAM
+6. Authenticate with GCP: `gcloud auth application-default login`
 
 ## GCP access (who needs it and how to get it)
-All teammates share the same GCP project: `agentic-fp-scriptsim`
+All teammates use the shared GCP project: `agentic-fp-scriptsim`
 
 **Who needs GCP access:**
 - Person 1 (Shruti) — already owner
-- Person 2 — only if running scans locally (agents are done)
-- Person 3 — NOT needed for building Flask app; only needed for full end-to-end scan testing
+- Person 2 — only if running scans locally
+- Person 3 — NOT needed for Flask app; only needed for end-to-end scan testing
 
 **How Shruti adds a teammate (GCP Console → IAM & Admin → IAM → Grant Access):**
 1. New principals: enter their Gmail
-2. Add role: `Vertex AI User` — allows calling Gemini API (every agent needs this)
-3. Add role: `Storage Object Creator` — allows uploading screenshots to GCS bucket
-4. Add role: `Cloud Datastore User` — allows reading/writing bugs to Firestore
+2. Add role: `Vertex AI User` — agents call Gemini API; without this, permission denied
+3. Add role: `Storage Object Creator` — take_screenshot.py uploads to GCS
+4. Add role: `Cloud Datastore User` — log_bug.py writes to Firestore
 5. Save — no IAM conditions needed
-
-**Why each role is required:**
-- `Vertex AI User` — agents call gemini-2.5-flash/flash-lite to think and act; without this, every API call returns permission denied
-- `Storage Object Creator` — take_screenshot.py uploads PNGs to gs://scriptsim-screenshots/; without this, screenshots fail silently
-- `Cloud Datastore User` — log_bug.py writes to Firestore scans/{scan_id}/bugs/; without this, bugs are found but never saved
 
 **Teammate then runs:** `gcloud auth application-default login` with that Gmail
 
-## Smoke tests (verify everything works)
+## Smoke tests (verify tools + agents work)
 ```
-python test_agent.py mapper https://example.com    # MapperAgent
-python test_agent.py persona kid https://example.com  # kid PersonaAgent
+python test_agent.py mapper https://example.com
+python test_agent.py persona kid https://example.com
 ```
+Both confirmed PASSING as of 2026-04-25.
 
 ## What is done
-- tools/ — all 10 async Playwright tools, tested against live GCP (Person 1)
-- agents/ + schemas/ + orchestrator.py — full ADK pipeline (Person 2)
-- GCS bucket scriptsim-screenshots — created, tested (screenshots upload confirmed)
-- Firestore (default) database — created, tested (bug writes confirmed)
-- MapperAgent smoke test — PASSED vs example.com
-- PersonaAgent [kid] smoke test — PASSED, all 7 tools fired, GCS uploads confirmed
-- GitHub: https://github.com/Shruti022/scriptsim
+- tools/ — all 10 async Playwright tools, per-task browser isolation implemented
+- login.py — stores cookies globally so all parallel persona contexts start logged in
+- agents/ + schemas/ + orchestrator.py — full ADK pipeline with smoke test + persona selection
+- GCS bucket + Firestore — created and tested
+- demo_app/ — Flask shop with 5 planted bugs (Person 3)
+- dashboard/ — Next.js UI with live activity console (Person 3)
+- api/ — FastAPI POST /scan endpoint with background task runner (Person 3)
+- start.py — one-command launcher for all 3 services
+- First scan run against demo app — SetupAgent + kid persona confirmed working
 
 ## What is pending
-- demo_app/ + dashboard/ + api/ — Person 3
+- Full 4-persona parallel scan end-to-end test (browser isolation fix just deployed)
 - Cloud Run deployment — Person 1 (session: person1-cloudrun)
-- Update demo app URL below once Person 3 deploys
+- Deploy demo app to Railway/Cloud Run for public URL
 
 ## Session naming convention for Claude Code
 claude --resume "person1-playwright-tools"
-claude --resume "person1-docker"
 claude --resume "person1-cloudrun"

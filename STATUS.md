@@ -1,7 +1,6 @@
 # ScriptSim — Dev Status & Error Log
 
-**Last updated:** 2026-04-25  
-**Person 1 session:** person1-playwright-tools  
+**Last updated:** 2026-04-26
 **GitHub:** https://github.com/Shruti022/scriptsim
 
 ---
@@ -10,20 +9,21 @@
 
 | Area | Owner | Status |
 |------|-------|--------|
-| `tools/` — Playwright tool functions | Person 1 | DONE + Tested |
-| `Dockerfile` | Person 1 | Done (initial) |
-| `requirements.txt` | Person 1 | Done (initial) |
+| `tools/` — 10 async Playwright tools | Person 1 | DONE + Tested |
+| Browser isolation (per-task contexts) | Person 1 | DONE |
 | GCS bucket `scriptsim-screenshots` | Person 1 | Created + Tested |
 | Firestore database | Person 1 | Created + Tested |
+| GCP IAM access for teammates | Person 1 | Configured |
 | Cloud Run deployment | Person 1 | Not started |
-| `agents/` — ADK agent definitions | Person 2 | DONE |
+| `agents/` — 6 ADK agents | Person 2 | DONE |
 | `schemas/bug_report.py` | Person 2 | DONE |
-| `orchestrator.py` | Person 2 | DONE |
-| First end-to-end Gemini scan | Person 1+2 | **DONE — MapperAgent ran successfully** |
-| `demo_app/` — Flask app with planted bugs | Person 3 | Not started |
-| `dashboard/` — Next.js frontend | Person 3 | Not started |
-| `api/` — FastAPI scan trigger | Person 3 | Not started |
-| `README.md` | All | Done |
+| `orchestrator.py` (with smoke test + persona selection) | Person 2 | DONE |
+| `demo_app/` — Flask shop with 5 planted bugs | Person 3 | DONE |
+| `dashboard/` — Next.js with live activity console | Person 3 | DONE |
+| `api/` — FastAPI POST /scan | Person 3 | DONE |
+| `start.py` — one-command launcher | Person 3 | DONE |
+| First real scan vs demo app (smoke test) | All | DONE — SetupAgent + kid persona confirmed |
+| Full 4-persona parallel scan | All | In progress — browser fix deployed, needs re-test |
 
 ---
 
@@ -33,24 +33,24 @@
 
 | File | What it does | Status |
 |------|-------------|--------|
-| `tools/__init__.py` | Exports all tool functions for ADK import | Done |
-| `tools/browser.py` | Async browser singleton — `start_browser`, `get_page`, `inject_cookies`, `set_zoom`, `close_browser` | Done + Tested |
-| `tools/get_page_state.py` | Returns JSON snapshot of page: URL, title, buttons, inputs, links, text, modals, errors | Done + Tested |
-| `tools/click_element.py` | Clicks element by visible text, falls back to aria-label | Done + Tested |
-| `tools/type_text.py` | Fills input by placeholder or aria-label, with optional clear-first | Done + Tested |
-| `tools/hover_element.py` | Hovers over element, captures any tooltip text that appears | Done + Tested |
-| `tools/take_screenshot.py` | Screenshot → system temp dir → uploads to GCS → returns `gs://` URI | Done + Tested |
-| `tools/log_bug.py` | Writes bug to Firestore `scans/{scan_id}/bugs/` with severity 1–5 | Done + Tested |
-| `tools/login.py` | Navigates login page, fills email+password, submits, returns cookies for SetupAgent | Done, untested (needs demo app) |
-| `tools/go_back.py` | Navigates browser back using `page.go_back()` — needed because agents can't click browser chrome | Done |
+| `tools/__init__.py` | Exports all tool functions | Done |
+| `tools/browser.py` | Per-task async browser contexts — each persona gets isolated BrowserContext | Done + Tested |
+| `tools/get_page_state.py` | JSON snapshot: URL, title, buttons, inputs, links, errors | Done + Tested |
+| `tools/click_element.py` | Click by visible text or aria-label | Done + Tested |
+| `tools/type_text.py` | Fill input by placeholder or aria-label | Done + Tested |
+| `tools/hover_element.py` | Hover to reveal tooltips | Done + Tested |
+| `tools/take_screenshot.py` | Screenshot → GCS `gs://scriptsim-screenshots/` | Done + Tested |
+| `tools/log_bug.py` | Write bug to Firestore `scans/{scan_id}/bugs/` | Done + Tested |
+| `tools/login.py` | Login form + stores cookies globally for parallel personas | Done + Tested |
+| `tools/go_back.py` | Browser back via `page.go_back()` | Done + Tested |
 
 ### GCP Infrastructure
 
 | Resource | Config | Status |
 |----------|--------|--------|
-| GCS bucket `scriptsim-screenshots` | Region: us-central1, Standard class | Created + Tested |
-| Firestore database | Native mode, us-central1, Standard edition | Created + Tested |
-| IAM access for teammates | Vertex AI User (Gemini API) + Storage Object Creator (GCS uploads) + Cloud Datastore User (Firestore writes) | Configured |
+| GCS bucket `scriptsim-screenshots` | us-central1, Standard | Created + Tested |
+| Firestore database | Native mode, us-central1 | Created + Tested |
+| IAM access | Vertex AI User + Storage Object Creator + Cloud Datastore User | Configured for teammates |
 | Cloud Run service `scriptsim-worker` | us-central1 | Not created yet |
 
 ### Live Test Results
@@ -58,205 +58,141 @@
 | Test | Result |
 |------|--------|
 | `get_page_state` on example.com | PASS |
-| `click_element` — click "Learn more" on example.com | PASS — navigated to iana.org |
-| `type_text` — DuckDuckGo search box | PASS |
-| `hover_element` — example.com | PASS |
-| `take_screenshot` — example.com | PASS — `gs://scriptsim-screenshots/gcs-test_1777135923.png` |
-| `log_bug` — write to Firestore scan `test-scan-001` | PASS — doc ID `fZb0FWUYAiKawgWeAABP` |
-| **Full MapperAgent scan vs example.com** | **PASS — first successful Gemini API call** |
-| **PersonaAgent [kid] scan vs example.com** | **PASS — all 7 tools fired, screenshots uploaded to GCS** |
-| `login` | Untested — needs Person 3 demo app URL |
+| `click_element` on example.com | PASS |
+| `type_text` on DuckDuckGo | PASS |
+| `hover_element` on example.com | PASS |
+| `take_screenshot` → GCS upload | PASS — `gs://scriptsim-screenshots/gcs-test_1777135923.png` |
+| `log_bug` → Firestore write | PASS — doc `fZb0FWUYAiKawgWeAABP` |
+| MapperAgent full scan vs example.com | PASS — clean JSON output, go_back working |
+| PersonaAgent [kid] vs example.com | PASS — all 7 tools fired, 3 GCS screenshots |
+| SetupAgent login vs demo app (localhost:5000) | PASS — cookies saved |
+| Kid persona vs demo app | PASS — browsed shop, clicked Add to Cart |
+| Full 4-persona parallel scan | Needs re-test after browser isolation fix |
+
+---
+
+## Person 3 — Completed Work
+
+### demo_app/app.py — 5 planted bugs
+
+| Bug | Description |
+|-----|-------------|
+| Bug 1 — XSS | Search query rendered with `\|safe` — `<script>alert(1)</script>` executes |
+| Bug 2 — Silent failure | "Super Gadget" add-to-cart returns success but item never added |
+| Bug 3 — Crash | Adding 10+ "Awesome Widget" raises ValueError → 500 error page |
+| Bug 4 — Confusing error | 500 page says "chickens have come home to roost" |
+| Bug 5 — Frozen checkout | Checkout button permanently disabled, says "unavailable" |
+
+### api/main.py
+- `POST /scan` — accepts URL, personas, smoke_test flag; runs scan in background; returns scan_id immediately
+- `GET /health` — health check
+- CORS enabled for dashboard
+
+### dashboard/
+- Persona picker (8-Year-Old, Power User, Anxious Parent, Retiree)
+- Demo App / Live Website toggle
+- Smoke Test Mode checkbox
+- Live activity console (polls Firestore every few seconds)
+- Bug report display
+
+### start.py
+- Launches demo_app (port 5000), API (port 8000), dashboard (port 3000) simultaneously
+- Auto-installs npm dependencies if node_modules missing
 
 ---
 
 ## Errors Encountered & How They Were Fixed
 
 ### Error 1 — `tools/` directory didn't exist
+**Fix:** Created full `tools/` package. **Resolved.**
 
-**Problem:** `browser.py` and `get_page_state.py` were in the project root instead of inside `tools/`. ADK imports reference `tools.browser`.
+### Error 2 — `greenlet==3.0.3` build failure on Python 3.14
+**Fix:** `pip install "playwright>=1.50.0"` locally. Docker still uses 1.44.0. **Resolved.**
 
-**Fix:** Created the full `tools/` package with all required files, deleted orphaned root-level copies.
+### Error 3 — `ModuleNotFoundError: No module named 'tools'`
+**Fix:** try/except import fallback in all tool files. **Resolved.**
 
-**Status:** Resolved.
+### Error 4 — Wrong Chromium binary after playwright upgrade
+**Fix:** Use `python -m playwright install chromium`. **Resolved.**
 
----
+### Error 5 — GCS public access prevention
+**Fix:** Return `gs://` URIs instead of public HTTPS URLs. **Resolved.**
 
-### Error 2 — `greenlet==3.0.3` fails to build on Python 3.14
+### Error 6 — Sync Playwright crashes inside asyncio
+**Fix:** Rewrote all tools to `async def` using `async_playwright`. **Resolved.**
 
-**Problem:**
-```
-error: failed-wheel-build-for-install greenlet
-fatal error C1189: "this header requires Py_BUILD_CORE define"
-```
-`playwright==1.44.0` pins `greenlet==3.0.3` which has no wheel for Python 3.14.
+### Error 7 — Gemini model 404 from Vertex AI
+**Fix:** Changed all model names to `gemini-2.5-flash-lite` / `gemini-2.5-flash`. **Resolved.**
 
-**Fix:** Upgraded playwright locally to `>=1.50.0`. Docker still uses `playwright==1.44.0` with Python 3.11 — no conflict.
+### Error 8 — MapperAgent stuck on sub-pages
+**Fix:** Added `tools/go_back.py`, gave it to MapperAgent and all PersonaAgents. **Resolved.**
 
-**Status:** Resolved. Local = playwright 1.58.0, Docker = playwright 1.44.0.
+### Error 9 — Agent output wrapped in markdown fences
+**Fix:** Strengthened instructions: "Do not wrap in ```json or markdown fences". **Resolved.**
 
----
+### Error 10 — SetupAgent had wrong model name (missed in Error 7 batch fix)
+**Fix:** Updated `setup_agent.py` to `gemini-2.5-flash-lite`. **Resolved.**
 
-### Error 3 — `ModuleNotFoundError: No module named 'tools'` running tools as scripts
+### Error 11 — `nest_asyncio` left in requirements.txt after being abandoned
+**Fix:** Removed from `requirements.txt`. **Resolved.**
 
-**Problem:** Running `python tools/get_page_state.py` adds `tools/` to `sys.path[0]`, so `from tools.browser import get_page` fails — it looks for `tools` *inside* `tools/`.
+### Error 12 — SynthesisAgent and EvalAgent missing anti-fence instruction
+**Fix:** Added "Do not wrap in markdown fences" to both. **Resolved.**
 
-**Fix:** All tool files use a try/except import fallback:
-```python
-try:
-    from tools.browser import get_page   # works when imported as package
-except ImportError:
-    from browser import get_page         # works when run as script directly
-```
+### Error 13 — Flask not installed, demo app fails to start
+**Problem:** `start.py` launches demo app but Flask wasn't in main `requirements.txt`.
+**Fix:** `pip install flask werkzeug` separately (demo_app has its own requirements.txt). **Resolved.**
 
-**Status:** Resolved.
-
----
-
-### Error 4 — `playwright install chromium` installed wrong browser version
-
-**Problem:** After upgrading playwright 1.44 → 1.58, `playwright install chromium` (shell command) downloaded for the old version. Browser binary not found.
-
-**Fix:** Use `python -m playwright install chromium` — this uses the exact playwright version that Python imports.
-
-**Status:** Resolved. Chromium 145.0.7632.6 installed.
-
----
-
-### Error 5 — GCS bucket public access prevention
-
-**Problem:** GCS bucket had Public Access Prevention enforced. `blob.make_public()` would fail at runtime. No way to disable it in the console.
-
-**Fix:** Dropped public access entirely. `take_screenshot.py` now returns `gs://` URIs instead of public HTTPS URLs. Cloud Run service accounts access GCS directly via IAM — no public URL needed.
-
-**Status:** Resolved. All screenshots stored as `gs://scriptsim-screenshots/{filename}`.
-
----
-
-### Error 6 — Sync Playwright cannot run inside asyncio event loop
-
-**Problem:** Original tools used sync Playwright (`playwright.sync_api`). ADK runner is async — calling a sync Playwright function inside an async event loop raises:
-```
-playwright._impl._errors.Error: It looks like you are using Playwright Sync API inside the asyncio loop.
-```
-
-Also tried `nest_asyncio` to patch the loop but it broke `aiohttp`'s `asyncio.timeout()`:
-```
-TypeError: object CancelledError can't be used in 'await' expression
-```
-
-**Fix:** Rewrote all 9 tool files to `async def` using `async_playwright` from `playwright.async_api`. All `page.*` calls are now `await`-ed. The ADK runner handles async tools natively.
-
-**Status:** Resolved. All tools are async.
-
----
-
-### Error 7 — Gemini model 404 NOT_FOUND from Vertex AI
-
-**Problem:** All agent files used preview model names (`gemini-2.5-flash-lite-preview-06-17`, `gemini-2.5-flash-preview-05-20`) that don't exist in Vertex AI:
-```
-404 NOT_FOUND: publishers/google/models/gemini-2.5-flash-lite-preview-06-17 not found
-```
-
-**Fix:** Listed available models via Vertex AI API. Confirmed available IDs:
-- `gemini-2.5-flash-lite` — fast, cheap (PersonaAgent, MapperAgent, SetupAgent)
-- `gemini-2.5-flash` — more capable (ReportAgent, SynthesisAgent, EvalAgent)
-
-Updated all 5 agent files to use these IDs.
-
-**Status:** Resolved. First successful Gemini API call confirmed.
-
----
-
-### Error 8 — MapperAgent stuck on sub-pages (no browser back)
-
-**Problem:** MapperAgent clicked "Learn more" and navigated to a sub-page, then tried to click a "Back" button (which doesn't exist in the page content). It looped trying different selectors and never returned to the original page.
-
-**Fix:** Added `tools/go_back.py` which calls `page.go_back()` — the real browser back. Added it to MapperAgent and all PersonaAgents. Updated mapper instruction to use `go_back` after each link click.
-
-**Status:** Resolved.
-
----
-
-### Error 9 — SetupAgent had wrong model name (missed during Error 7 fix)
-
-**Problem:** `agents/setup_agent.py` still had `gemini-2.5-flash-lite-preview-06-17` after the batch model name fix in Error 7. Would have caused a 404 on first real scan.
-
-**Fix:** Updated to `gemini-2.5-flash-lite`.
-
-**Status:** Resolved.
-
----
-
-### Error 10 — `nest_asyncio` left in requirements.txt after being abandoned
-
-**Problem:** `nest_asyncio` was tried as a fix for the sync/async Playwright conflict but abandoned because it breaks `aiohttp`. It was still in `requirements.txt`, causing unnecessary installs and potential conflicts.
-
-**Fix:** Removed from `requirements.txt`.
-
-**Status:** Resolved.
-
----
-
-### Error 11 — SynthesisAgent and EvalAgent missing anti-markdown-fence instruction
-
-**Problem:** `synthesis_agent.py` and `eval_agent.py` both said "Output ONLY valid JSON" but not "no markdown fences". Since their output is read by downstream agents via session state, markdown fences would break `json.loads()`.
-
-**Fix:** Added "Do not wrap in ```json or any markdown fences" to both instructions.
-
-**Status:** Resolved.
-
----
-
-### Error 12 — MapperAgent output wrapped in markdown code fences
-
-**Problem:** Despite "Output ONLY valid JSON" in the instruction, the agent returned:
-```
-```json
-{ ... }
-```
-```
-This breaks downstream agents that try to `json.loads()` the `feature_map` session state.
-
-**Fix:** Strengthened the instruction: "Output ONLY the raw JSON object, nothing else. Do not wrap it in \`\`\`json or any markdown."
-
-**Status:** Resolved (needs re-test to confirm).
+### Error 14 — Parallel personas share one browser tab (chaos)
+**Problem:** All 4 PersonaAgents share the same global `_page`. Running in parallel they fight
+over one tab — each agent's clicks affect what the others see. Second scan also picked up
+stale browser state from the first scan.
+**Fix:** Rewrote `browser.py` to use per-task `BrowserContext` via `asyncio.current_task()` ID.
+`get_page()` auto-creates an isolated context for each new task. `login.py` stores cookies
+globally in `_default_cookies` so new contexts start logged in. `start_browser()` clears
+all stale contexts before launching. **Resolved — awaiting re-test.**
 
 ---
 
 ## Design Decisions
 
-### Async Playwright (not sync)
+### Per-task browser isolation
+Each asyncio Task (persona) gets its own `BrowserContext` — isolated cookies, storage, and page.
+`_contexts` dict maps `id(asyncio.current_task())` → `(BrowserContext, Page)`.
+New contexts auto-inject `_default_cookies` (set by login) and navigate to `_default_url`.
 
-All tools are `async def` using `async_playwright`. The CLAUDE.md note about sync Playwright is outdated — ADK is async and sync Playwright cannot run inside an asyncio loop.
+### Async Playwright (not sync)
+ADK is async. Sync Playwright raises error inside asyncio loop. All tools are `async def`.
 
 ### GCS `gs://` URIs, not public HTTPS URLs
+Public Access Prevention blocks public URLs. Use `gs://` URIs; Cloud Run accesses via IAM.
 
-Tools return `gs://scriptsim-screenshots/{filename}` URIs. Cloud Run service accounts access GCS via IAM. Public access is blocked at the bucket level and is unnecessary.
+### `go_back` as dedicated tool
+Agents cannot click browser chrome. `go_back()` wraps `page.go_back()`.
 
-### `go_back` as a dedicated tool
+### ADK tools XOR output_schema
+PersonaAgents have 7 tools, no schema. ReportAgents have `output_schema=BugReport`, no tools.
 
-Agents cannot control browser chrome (back button). A `go_back()` tool wrapping `page.go_back()` is required for any navigation-heavy agent.
+### Orchestrator smoke test mode
+`is_smoke_test=True` → 1 persona, 5 actions, skip mapper. Enables fast 3-minute demos.
 
 ---
 
 ## Next Steps
 
 ### Person 1
-- [x] Re-run `python test_agent.py mapper https://example.com` — `go_back` works, raw JSON confirmed
-- [x] Test `python test_agent.py persona kid https://example.com` — all 7 tools fired, GCS screenshots confirmed
-- [ ] Set up Cloud Run deployment (session: `person1-cloudrun`)
-- [ ] Grant Cloud Run service account `Storage Object Creator` + `Cloud Datastore User` IAM roles
-- [ ] Test `login.py` against demo app once Person 3 deploys
+- [ ] Re-test full 4-persona parallel scan after browser isolation fix
+- [ ] Cloud Run deployment (session: `person1-cloudrun`)
+- [ ] Grant Cloud Run service account IAM roles when deploying
 
-### Person 2 (done — no pending)
+### Person 2
+- [ ] No pending work — agents complete
 
-### Person 3 (pending)
-- [ ] Build Flask demo app with 5 planted bugs
-- [ ] Deploy to Railway (or Cloud Run)
-- [ ] Build Next.js dashboard
-- [ ] Build FastAPI `/scan` endpoint
+### Person 3
+- [ ] Deploy demo app to Railway/Cloud Run for public URL
+- [ ] Update CLAUDE.md with public demo app URL when available
 
-### Full end-to-end test (all three)
-- [ ] Run `python orchestrator.py <demo_app_url>` once Person 3 deploys
-- [ ] Verify bugs appear in Firestore + screenshots in GCS
+### All together
+- [ ] Run full scan on deployed public demo app URL
+- [ ] Verify all 5 bugs found across personas
 - [ ] Review final ranked report JSON

@@ -1,4 +1,4 @@
-# ScriptSim — AI QA Testing Agent
+# ScriptSim — AI-Powered Parallel QA Testing
 
 ScriptSim deploys adversarial AI personas to test web products in parallel. Each persona browses the product in a real browser, finds bugs the owner never thought to test for, and produces a ranked severity report with screenshots.
 
@@ -6,21 +6,21 @@ ScriptSim deploys adversarial AI personas to test web products in parallel. Each
 
 ## How It Works
 
-Five AI personas (confused 8-year-old, 22-year-old power user, anxious parent, retiree, grandma) simultaneously explore a live web app. Each persona behaves differently — the kid clicks randomly, the power user tries XSS injection, the parent worries about privacy. After browsing, their findings are synthesized into a single ranked bug report.
+Four AI personas simultaneously explore a live web app. Each behaves differently — the kid clicks randomly, the power user tries XSS injection, the parent worries about privacy, the retiree gets confused by icons. After browsing, findings are synthesised into a single ranked bug report.
 
 ### Pipeline (5 phases, fully automated)
 
 ```
-SetupAgent → MapperAgent → ParallelAgent (4 personas) → ReportAgents → SynthesisAgent → EvalAgent
+SetupAgent → MapperAgent → ParallelAgent (N personas) → ReportAgents → SynthesisAgent → EvalAgent
 ```
 
 | Phase | Agent | What it does |
 |-------|-------|-------------|
-| 1 | SetupAgent | Logs in, saves session cookies |
-| 2 | MapperAgent | Crawls the app, builds feature map |
-| 3 | ParallelAgent | Runs 4 PersonaAgents simultaneously |
-| 4 | ReportAgent ×4 | Converts action logs to structured bug reports |
-| 5 | SynthesisAgent + EvalAgent | Deduplicates, cross-scores, ranks by severity |
+| 1 | SetupAgent | Logs in, stores session cookies for all persona contexts |
+| 2 | MapperAgent | Crawls the app, builds feature map (skipped in smoke test mode) |
+| 3 | ParallelAgent | Runs persona agents simultaneously in isolated browser contexts |
+| 4 | ReportAgent ×N | Converts action logs to structured BugReport objects |
+| 5 | SynthesisAgent + EvalAgent | Deduplicates, cross-scores, ranks by severity 1–5 |
 
 ---
 
@@ -29,14 +29,15 @@ SetupAgent → MapperAgent → ParallelAgent (4 personas) → ReportAgents → S
 | Layer | Technology |
 |-------|-----------|
 | Agent framework | Google ADK (`google-adk`) |
-| LLM (personas/mapper) | Gemini 2.5 Flash-Lite |
-| LLM (synthesis/eval) | Gemini 2.5 Flash |
-| Browser automation | Playwright + Chromium |
+| LLM (setup/mapper/personas) | Gemini 2.5 Flash-Lite via Vertex AI |
+| LLM (report/synthesis/eval) | Gemini 2.5 Flash via Vertex AI |
+| Browser automation | Playwright + Chromium (async, per-task isolated) |
 | Infrastructure | Google Cloud Run |
-| State storage | Google Cloud Firestore |
-| Screenshot storage | Google Cloud Storage |
-| Frontend | Next.js on Firebase Hosting |
+| State + live activity | Google Cloud Firestore |
+| Screenshot storage | Google Cloud Storage (`gs://scriptsim-screenshots/`) |
+| Frontend | Next.js dashboard |
 | API | FastAPI |
+| Demo target | Flask app with 5 planted bugs |
 
 ---
 
@@ -44,40 +45,125 @@ SetupAgent → MapperAgent → ParallelAgent (4 personas) → ReportAgents → S
 
 ```
 scriptsim/
+├── start.py                # One command starts all 3 services
 ├── test_agent.py           # Smoke test — run single agent against any URL
+├── orchestrator.py         # Full pipeline runner (persona selection, smoke test mode)
 ├── tools/                  # Person 1 — Playwright browser tools
-│   ├── browser.py          # Async browser singleton (start, stop, inject cookies)
-│   ├── get_page_state.py   # Snapshot of current page (buttons, inputs, links)
+│   ├── browser.py          # Per-task isolated BrowserContext (parallel-safe)
+│   ├── get_page_state.py   # Snapshot: URL, buttons, inputs, links, errors
 │   ├── click_element.py    # Click by visible text or aria-label
 │   ├── type_text.py        # Fill input by placeholder or aria-label
 │   ├── hover_element.py    # Hover to reveal tooltips/dropdowns
-│   ├── take_screenshot.py  # Screenshot → GCS bucket (returns gs:// URI)
+│   ├── take_screenshot.py  # Screenshot → GCS (returns gs:// URI)
 │   ├── log_bug.py          # Write bug to Firestore
-│   ├── login.py            # Fill login form, return session cookies
-│   └── go_back.py          # Browser back navigation (page.go_back())
-│
+│   ├── login.py            # Login form + store cookies for all persona contexts
+│   └── go_back.py          # Browser back navigation
 ├── agents/                 # Person 2 — ADK agent definitions
-│   ├── setup_agent.py      # Logs in to target app
-│   ├── mapper_agent.py     # Crawls app, builds feature map
+│   ├── setup_agent.py
+│   ├── mapper_agent.py
 │   ├── persona_agent.py    # make_persona_agent(persona) factory
 │   ├── report_agent.py     # make_report_agent(persona) factory
-│   ├── synthesis_agent.py  # Dedup + cross-persona severity scoring
-│   └── eval_agent.py       # Final ranking and report generation
-│
-├── schemas/                # Person 2 — Pydantic models
-│   └── bug_report.py       # BugReport schema (9 fields, severity 1–5)
-│
-├── orchestrator.py         # Person 2 — Full pipeline runner
-│
-├── demo_app/               # Person 3 — Flask app with 5 planted bugs
-├── dashboard/              # Person 3 — Next.js results dashboard
-├── api/                    # Person 3 — FastAPI scan trigger endpoints
-│
-├── Dockerfile              # Playwright + Python image for Cloud Run
-├── requirements.txt        # Python dependencies
-├── CLAUDE.md               # Project spec and rules
-└── STATUS.md               # Dev log, errors, and current status
+│   ├── synthesis_agent.py
+│   └── eval_agent.py
+├── schemas/
+│   └── bug_report.py       # Pydantic BugReport (9 fields, severity 1–5)
+├── demo_app/               # Person 3 — Flask shop with 5 planted bugs
+│   └── app.py
+├── dashboard/              # Person 3 — Next.js UI
+│   └── app/page.js         # Persona picker, scan trigger, live activity console
+├── api/                    # Person 3 — FastAPI backend
+│   └── main.py             # POST /scan, GET /health
+├── Dockerfile
+├── requirements.txt
+├── CLAUDE.md               # Full project spec and rules (read by Claude Code automatically)
+└── STATUS.md               # Error log, test results, next steps
 ```
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Python 3.11+ (3.14 supported — see note below)
+- Node.js (for Next.js dashboard)
+- `gcloud` CLI
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+pip install flask werkzeug          # for demo app
+python -m playwright install chromium
+```
+
+> **Python 3.14 note:** `requirements.txt` pins `playwright==1.44.0` for Docker. On Python 3.14 locally, run `pip install "playwright>=1.50.0"` to override. Always use `python -m playwright install chromium` (not the shell command).
+
+### 2. Create `.env` file (get from Shruti — never commit this)
+
+```
+GOOGLE_GENAI_USE_VERTEXAI=1
+GOOGLE_CLOUD_PROJECT=agentic-fp-scriptsim
+GOOGLE_CLOUD_LOCATION=us-central1
+```
+
+### 3. Authenticate with GCP
+
+```bash
+gcloud auth application-default login
+gcloud config set project agentic-fp-scriptsim
+gcloud auth application-default set-quota-project agentic-fp-scriptsim
+```
+
+> **GCP access:** Your Gmail must be added to the project IAM by Shruti. Required roles:
+> - `Vertex AI User` — to call Gemini API (every agent needs this)
+> - `Storage Object Creator` — to upload screenshots (`take_screenshot.py`)
+> - `Cloud Datastore User` — to write bug reports (`log_bug.py`)
+>
+> Person 3 does NOT need GCP access to run the Flask demo app.
+
+### 4. Start everything
+
+```bash
+python start.py
+```
+
+Opens:
+- Demo App → http://localhost:5000
+- Dashboard → http://localhost:3000
+- API → http://localhost:8000
+
+### 5. Run a scan
+
+1. Open http://localhost:3000
+2. Select **Demo App** (pre-filled, port 5000)
+3. Pick personas (or keep all 4)
+4. Check **Smoke Test Mode** for a fast 3-minute demo
+5. Click **Run Parallel Scan**
+
+---
+
+## Demo App — 5 Planted Bugs
+
+| # | Bug | How to trigger |
+|---|-----|---------------|
+| 1 | XSS in search | Search for `<script>alert(1)</script>` |
+| 2 | Silent cart failure | Add "Super Gadget" — success alert but item never appears in cart |
+| 3 | Crash at 10+ items | Add "Awesome Widget" 10 times — server 500 error |
+| 4 | Confusing error message | Trigger the 500 — says "chickens have come home to roost" |
+| 5 | Frozen checkout | Go to cart — Checkout button is permanently disabled |
+
+Test credentials: `test@scriptsim.com` / `TestPass123!`
+
+---
+
+## Smoke Tests (verify agents work)
+
+```bash
+python test_agent.py mapper https://example.com
+python test_agent.py persona kid https://example.com
+```
+
+Both confirmed PASSING as of 2026-04-25.
 
 ---
 
@@ -92,108 +178,26 @@ scriptsim/
 
 ---
 
-## Local Setup
-
-### Prerequisites
-- Python 3.11+ (3.14 supported with playwright upgrade)
-- `gcloud` CLI installed and authenticated
-
-### Install
-
-```bash
-pip install -r requirements.txt
-python -m playwright install chromium
-```
-
-> **Note:** `requirements.txt` pins `playwright==1.44.0` for Docker compatibility. If you're on Python 3.14 locally and get a `greenlet` build error, run `pip install "playwright>=1.50.0"` to override it. Always use `python -m playwright install chromium` (not just `playwright install chromium`) to install the browser for the correct version.
-
-## Quick Start (Local Run)
-
-The easiest way to run ScriptSim locally is using the automated startup script:
-
-```powershell
-python start.py
-```
-
-This single command starts the **Demo App**, **FastAPI Backend**, and **Next.js Dashboard** simultaneously.
-
-### Access the Dashboard
-Once the script is running, visit: **[http://localhost:3000](http://localhost:3000)**
-
-- Select **"Demo App"** for a local test.
-- Pick your **AI Personas**.
-- Enable **"Smoke Test Mode"** for a fast (3-minute) demo.
-- Click **"Run Parallel Scan"** and watch the **Live Activity Console**!
-
----
-
-### Create `.env` file
-
-```
-GOOGLE_GENAI_USE_VERTEXAI=1
-GOOGLE_CLOUD_PROJECT=agentic-fp-scriptsim
-GOOGLE_CLOUD_LOCATION=us-central1
-```
-
-### Authenticate with GCP
-
-```bash
-gcloud auth application-default login
-gcloud config set project agentic-fp-scriptsim
-gcloud auth application-default set-quota-project agentic-fp-scriptsim
-```
-
-> **GCP access:** All teammates use the shared project `agentic-fp-scriptsim`. Your Gmail must be added to the project IAM by Shruti before this works. Three roles are required:
-> - `Vertex AI User` — to call the Gemini API (every agent call needs this)
-> - `Storage Object Creator` — to upload screenshots to GCS (`take_screenshot.py`)
-> - `Cloud Datastore User` — to write bug reports to Firestore (`log_bug.py`)
-
-### Verify setup with smoke tests
-
-```bash
-python test_agent.py mapper https://example.com       # MapperAgent — should print feature_map JSON
-python test_agent.py persona kid https://example.com  # kid PersonaAgent — should print action_log_kid
-```
-
-Both tests confirmed working as of 2026-04-25.
-
-### Run a full scan (once demo app is deployed)
-
-```bash
-python orchestrator.py https://<demo-app-url>
-```
-
----
-
-## Demo App
-
-- **URL:** Local (run `python demo_app/app.py` on port 5000) or TBD (deploying to Railway)
-- **Test credentials:** `test@scriptsim.com` / `TestPass123!`
-- **Planted bugs:** XSS in search, silent cart failure, crash at 10+ items, confusing error message, frozen checkout button
-
----
-
 ## Key Design Decisions
 
-**Async Playwright (not sync)** — ADK's runner is async, so all browser tools must be `async def` using `playwright.async_api`. Sync Playwright raises an error inside an asyncio event loop. Every `page.*` call must be `await`-ed.
+**Per-task browser isolation** — Each asyncio Task (persona) gets its own `BrowserContext` keyed by `asyncio.current_task()` ID. Personas cannot interfere with each other. `login.py` stores cookies globally so every new context starts logged in automatically.
 
-**`gs://` URIs for screenshots** — GCS Public Access Prevention is on by default in GCP. Tools store `gs://scriptsim-screenshots/filename.png` URIs instead of public HTTPS URLs. Cloud Run service accounts access GCS directly via IAM. The dashboard handles signed URLs for display.
+**Async Playwright** — ADK's runner is async. Sync Playwright raises an error inside asyncio. All tools are `async def`, all page calls are `await`-ed.
 
-**`go_back()` tool for navigation** — Agents cannot control browser chrome (the back button). `tools/go_back.py` wraps `page.go_back()` and must be given to any agent that needs to navigate back between pages.
+**`gs://` URIs for screenshots** — GCS Public Access Prevention blocks public URLs. Tools return `gs://scriptsim-screenshots/...` URIs; Cloud Run reads via IAM.
 
-**ADK constraint: tools XOR output_schema** — Gemini does not support both on the same agent. PersonaAgents have tools and no schema. ReportAgents have `output_schema=BugReport` and no tools.
+**`go_back()` tool** — Agents cannot click browser chrome. `go_back()` wraps `page.go_back()`.
 
-**State passing via `output_key`** — Agents do not return values directly. Each agent writes to session state via `output_key`. Downstream agents read via `{variable_name}` in their instruction templates.
+**ADK constraint: tools XOR output_schema** — PersonaAgents have 7 tools, no schema. ReportAgents have `output_schema=BugReport`, no tools. Never combine both on one agent.
+
+**Smoke test mode** — `is_smoke_test=True` runs 1 persona, 5 actions, skips mapper. Enables fast 3-minute demos without burning Gemini quota.
+
 ---
 
-## Class Concepts Used
+## Team
 
-This project implements the following concepts covered in class:
-
-1. **Multi-Agent Orchestration**: Uses a `SequentialAgent` to coordinate a complex 5-phase pipeline.
-
-2. **Parallel Agentic Loops**: Uses a `ParallelAgent` to run multiple adversarial personas simultaneously, each with their own autonomous reasoning and tool-calling loop.
-
-3. **Tool Calling & Browser Automation**: Agents use a suite of custom-built Playwright tools to interact with the DOM, handle navigation, and capture visual evidence.
-
-4. **Structured Synthesis**: Uses a high-capability model (Gemini 2.5 Flash) to deduplicate and rank raw findings from multiple lower-capability agents (Flash-Lite).
+| Person | Owns | Status |
+|--------|------|--------|
+| Person 1 (Shruti) | `tools/`, Dockerfile, Cloud Run | Done — browser isolation shipped |
+| Person 2 | `agents/`, `schemas/`, `orchestrator.py` | Done |
+| Person 3 | `demo_app/`, `dashboard/`, `api/`, `start.py` | Done |
