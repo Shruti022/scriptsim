@@ -1,6 +1,6 @@
 # ScriptSim — Dev Status & Error Log
 
-**Last updated:** 2026-04-27
+**Last updated:** 2026-04-27 (evening)
 **GitHub:** https://github.com/Shruti022/scriptsim
 
 ---
@@ -27,8 +27,10 @@
 | Persona login fallback + action limit fix | Person 1 | DONE |
 | `test_agent.py` pre-login + session state fix | Person 1 | DONE |
 | Orchestrator user message, report sequencing, encoding fixes | Person 1 | DONE |
+| EvalAgent/SynthesisAgent fence wrapping fix | Person 1 | DONE |
 | Kid persona smoke test vs demo app | All | PASS (2026-04-26) |
-| Full 4-persona parallel scan end-to-end | All | PASS (2026-04-27) — 3 bugs found, $0.023, 631s |
+| Full 4-persona scan — first confirmed run | All | PASS (2026-04-27) — 3 bugs, $0.023, 631s |
+| Full 4-persona scan — fence fix confirmed | All | PASS (2026-04-27) — 2 bugs, $0.021, 708s, "N bugs found" correct |
 
 ---
 
@@ -60,6 +62,9 @@
 | `orchestrator.py` | `→` replaced with `->` in print statements (Windows encoding) | Fixed |
 | `orchestrator.py` | `max_persona_actions` reduced 15→7 for full scan | Fixed |
 | `orchestrator.py` | `skip_mapper=True` for full scan (mapper loops on this app) | Fixed |
+| `orchestrator.py` | `_strip_fences()` strips ```json``` wrappers before json.loads() | Fixed |
+| `agents/eval_agent.py` | Stronger anti-fence instruction — specifies exact first/last character | Fixed |
+| `agents/synthesis_agent.py` | Stronger anti-fence instruction — specifies exact first/last character | Fixed |
 | `test_agent.py` | Pre-login step + `max_persona_actions` in session state | Fixed |
 
 ### GCP Infrastructure
@@ -85,7 +90,8 @@
 | PersonaAgent [kid] vs example.com | PASS — all 7 tools fired, 3 GCS screenshots |
 | SetupAgent login vs demo app | PASS — cookies saved, LOGIN_SUCCESS |
 | Kid persona vs demo app (localhost:5000) | PASS (2026-04-26) — landed on home page, found Bug 2 |
-| Full 4-persona scan vs demo app | PASS (2026-04-27) — all 11 agents ran, 3 bugs found, $0.023 |
+| Full 4-persona scan vs demo app (scan 1) | PASS (2026-04-27) — all 11 agents, 3 bugs, $0.023, 631s |
+| Full 4-persona scan vs demo app (scan 2, fence fix) | PASS (2026-04-27) — 2 bugs, "2 bugs found" parsed correctly, $0.021, 708s |
 
 ---
 
@@ -129,33 +135,43 @@
 
 ---
 
-## First Successful Full Scan Results (2026-04-27)
+## Full Scan Results
 
-Scan ID: `9e4aec31-6f8f-4051-acb3-d11b7ef28495`
-URL: `http://localhost:5000`
-Elapsed: 631 seconds (~10.5 min) | Cost: $0.023 | API calls: 71
+### Scan 1 — First confirmed end-to-end run (2026-04-27)
+Scan ID: `9e4aec31-6f8f-4051-acb3-d11b7ef28495` | Elapsed: 631s | Cost: $0.023 | API calls: 71
+
+| Rank | Title | Severity | Personas |
+|------|-------|----------|---------|
+| 1 | Add to Cart not working — cart stays at 0 | CRITICAL (5) | kid, parent |
+| 2 | Cart displays incorrect item quantities | MAJOR (4) | power_user |
+| 3 | Search UX unclear for novice users | MINOR (2) | retiree |
+
+Note: dashboard showed "? bugs found" — fence wrapping bug not yet fixed.
+
+### Scan 2 — Fence fix confirmed (2026-04-27)
+Scan ID: `faa46dbd-b4fa-4985-b03a-8c2b31844fd4` | Elapsed: 708s | Cost: $0.021 | API calls: 62
 
 | Agent | API Calls | Tokens |
 |-------|-----------|--------|
 | setup_agent | 2 | 583 |
-| persona_kid | 12 | 20,477 |
-| persona_power_user | 40 | 101,281 |
-| persona_parent | 9 | 14,938 |
-| persona_retiree | 2 | 2,376 |
-| report_kid | 1 | 9,650 |
-| report_power_user | 1 | 10,037 |
-| report_parent | 1 | 10,347 |
-| report_retiree | 1 | 10,755 |
-| synthesis_agent | 1 | 13,322 |
-| eval_agent | 1 | 14,903 |
-
-### Bugs found by the scan
+| persona_kid | 22 | 51,499 |
+| persona_power_user | 9 | 19,937 |
+| persona_parent | 10 | 16,686 |
+| persona_retiree | 13 | 20,431 |
+| report_kid | 1 | 11,563 |
+| report_power_user | 1 | 11,470 |
+| report_parent | 1 | 11,884 |
+| report_retiree | 1 | 12,132 |
+| synthesis_agent | 1 | 14,385 |
+| eval_agent | 1 | 14,930 |
 
 | Rank | Title | Severity | Personas |
 |------|-------|----------|---------|
-| 1 | Add to Cart not working — cart stays at 0 after adding items | CRITICAL (5) | kid, parent |
-| 2 | Cart displays incorrect item quantities | MAJOR (4) | power_user |
-| 3 | Search UX unclear for novice users | MINOR (2) | retiree |
+| 1 | Add to Cart broken — cart stays empty, View Cart link fails | CRITICAL (5) | kid, parent, power_user |
+| 2 | Missing help or contact section | MAJOR (4) | retiree |
+
+Dashboard output: **"Scan complete. 2 bugs found."** — parsed correctly, fence fix confirmed working.
+Retiree improved: 13 API calls this scan vs 2 in scan 1.
 
 ---
 
@@ -275,6 +291,19 @@ amplified the rate limit problem and made scans very long (18+ minutes).
 **Fix:** Reduced `max_persona_actions` from 15 to 7 in full scan mode. **Partially resolved —
 power_user still ran 40 calls in confirmed working scan. Root cause is soft limit.**
 
+### Error 25 — EvalAgent and SynthesisAgent output wrapped in ```json``` fences
+**Problem:** Despite the instruction saying "do not wrap in markdown fences", both agents
+wrapped their JSON output in ` ```json ``` ` blocks. The orchestrator called `json.loads()`
+directly on the raw output, which failed with `JSONDecodeError`. Result: `final_report` was
+stored as `{"raw": "...fenced string..."}` and the dashboard showed "? bugs found".
+**Fix (two layers):**
+1. Added `_strip_fences()` utility to `orchestrator.py` — strips ` ```json ``` ` wrappers
+   before `json.loads()`. Defensive fallback that works regardless of LLM behaviour.
+2. Strengthened instruction in both agents — changed from "do not wrap in fences" to specifying
+   the exact required first character (`{` or `[`) and last character (`}` or `]`), making it
+   harder for the model to violate without noticing.
+**Confirmed resolved** — second full scan showed "Scan complete. 2 bugs found." **Resolved.**
+
 ---
 
 ## Design Decisions
@@ -324,21 +353,17 @@ login flow before starting persona behaviour. Acts as a fallback if SetupAgent f
 
 ## Known Remaining Issues
 
-| Issue | Impact | Workaround |
-|-------|--------|-----------|
-| Action limit is soft — power_user ran 40 calls vs limit of 7 | Longer scans, more quota used | Reduce limit further; accept as demo limitation |
-| Retiree gave up after 2 API calls | Weak bug coverage from retiree persona | Strengthen retiree instruction |
-| EvalAgent output wrapped in `\`\`\`json\`\`\`` fences | Dashboard shows "? bugs found" — final report parsed as raw string | Add stronger anti-fence instruction to eval_agent |
-| Mapper loops on non-navigating buttons | Mapper unusable on current demo app | Skipped; fix mapper go_back logic |
-| Cloud Run not deployed | Services run locally only | Pending Person 1 deployment |
+| Issue | Impact | Status |
+|-------|--------|--------|
+| Action limit is soft — kid/power_user exceed limit | Longer scans, more quota used | Accepted — scans still complete |
+| Mapper loops on non-navigating buttons | Mapper disabled in all modes | Skipped until fixed |
+| Cloud Run not deployed | Services run locally only | Pending |
 
 ---
 
 ## Next Steps
 
 ### Person 1
-- [ ] Fix eval_agent fence wrapping so final report is properly parsed (dashboard shows correct bug count)
-- [ ] Strengthen retiree persona instruction so it explores more
 - [ ] Cloud Run deployment (session: `person1-cloudrun`)
 
 ### Person 2

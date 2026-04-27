@@ -166,8 +166,9 @@ python test_agent.py persona kid http://localhost:5000
 | Test | Result | Date |
 |------|--------|------|
 | MapperAgent vs example.com | PASS | 2026-04-25 |
-| Kid persona vs demo app (localhost:5000) | PASS — found Bug 2 (silent cart), screenshots to GCS | 2026-04-26 |
-| Full 4-persona scan vs demo app | PASS — all 11 agents ran, 3 bugs found, $0.023, 631s | 2026-04-27 |
+| Kid persona vs demo app (localhost:5000) | PASS — found Bug 2, screenshots to GCS | 2026-04-26 |
+| Full 4-persona scan vs demo app (scan 1) | PASS — all 11 agents, 3 bugs, $0.023, 631s | 2026-04-27 |
+| Full 4-persona scan vs demo app (scan 2) | PASS — fence fix confirmed, "2 bugs found" correct, $0.021 | 2026-04-27 |
 
 Note: persona smoke test requires demo app running (`python start.py` or `python demo_app/app.py`). The test pre-logs in automatically before the persona starts.
 
@@ -214,8 +215,6 @@ Note: persona smoke test requires demo app running (`python start.py` or `python
 
 ## Known Limitations
 
-- **Action limit is a soft limit** — `max_persona_actions` is a hint to the LLM, not a hard stop. Power user ran 40 calls against a limit of 7. Scans may run longer than expected.
+- **Action limit is a soft limit** — `max_persona_actions` is a hint to the LLM, not a hard stop. Scans may run longer than expected but always complete.
 - **Mapper disabled** — MapperAgent loops on non-navigating buttons (`go_back` from root → `about:blank`). Skipped until fixed; personas find bugs without it.
-- **EvalAgent fence wrapping** — Final report output is occasionally wrapped in ` ```json ``` ` fences, causing the dashboard to display "? bugs found". The raw JSON is still present in the scan log.
-- **Retiree persona exits early** — Ran only 2 API calls in the confirmed scan. Instruction needs strengthening.
 - **Cloud Run not yet deployed** — All services run locally. Public URL pending.

@@ -181,7 +181,8 @@ python test_agent.py persona kid http://localhost:5000
 ```
 - MapperAgent vs example.com: PASS (2026-04-25)
 - Kid persona vs demo app (localhost:5000): PASS (2026-04-26)
-- Full 4-persona scan vs demo app: PASS (2026-04-27) — all 11 agents ran, $0.023, 631s
+- Full 4-persona scan — scan 1: PASS (2026-04-27) — all 11 agents, $0.023, 631s
+- Full 4-persona scan — scan 2 (fence fix): PASS (2026-04-27) — "2 bugs found" correct, $0.021, 708s
 
 Note: `test_agent.py persona` pre-logs in before running the persona. Requires demo app running.
 
@@ -193,6 +194,8 @@ Note: `test_agent.py persona` pre-logs in before running the persona. Requires d
 - persona_agent.py — _LOGIN_PREAMBLE login fallback + max action limit enforced
 - test_agent.py — pre-login step + max_persona_actions in session state
 - orchestrator.py — user message fixed, report agents sequential, encoding fixed, mapper skipped
+- orchestrator.py — _strip_fences() added, dashboard now shows correct bug count
+- eval_agent.py + synthesis_agent.py — stronger anti-fence instructions (first/last char rule)
 - GCS bucket + Firestore — created and tested
 - demo_app/ — Flask shop with 5 planted bugs (Person 3)
 - dashboard/ — Next.js UI with live activity console (Person 3)
@@ -201,10 +204,9 @@ Note: `test_agent.py persona` pre-logs in before running the persona. Requires d
 - logs/ — per-scan agent logs and token usage reports (Person 2 addition)
 
 ## What is pending
-- Fix eval_agent fence wrapping (dashboard shows "? bugs found" instead of count)
-- Strengthen retiree persona (only 2 API calls in confirmed scan — gave up too early)
 - Cloud Run deployment — Person 1 (session: person1-cloudrun)
 - Deploy demo app to Railway/Cloud Run for public URL
+- Write final project report
 
 ## Session naming convention for Claude Code
 claude --resume "person1-playwright-tools"

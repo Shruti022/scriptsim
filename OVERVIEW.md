@@ -151,23 +151,23 @@ Running all 4 report agents in parallel after 4 parallel personas caused Vertex 
 
 ## Confirmed Scan Results (2026-04-27)
 
-Full scan against the demo shop, all 4 personas:
+Two full scans run against the demo shop, all 4 personas. Both completed successfully.
 
-| Metric | Value |
-|--------|-------|
-| Total time | 631 seconds (~10.5 minutes) |
-| Total cost | $0.023 |
-| API calls | 71 |
-| Agents that ran | 11 (setup + 4 personas + 4 reports + synthesis + eval) |
-| Bugs found | 3 |
+| Metric | Scan 1 | Scan 2 (latest) |
+|--------|--------|-----------------|
+| Total time | 631s (~10.5 min) | 708s (~12 min) |
+| Total cost | $0.023 | $0.021 |
+| API calls | 71 | 62 |
+| Agents that ran | 11 | 11 |
+| Bugs found (parsed) | 3 | 2 |
+| Dashboard output | "? bugs found" (fence bug) | "2 bugs found" (correct) |
 
-### Bugs the system found
+### Bugs found in latest scan
 
 | Rank | Bug | Severity | Found by |
 |------|-----|----------|---------|
-| 1 | Add to Cart broken — items never added, cart stays at 0 | Critical (5) | Kid + Parent |
-| 2 | Cart shows incorrect item quantities | Major (4) | Power User |
-| 3 | Search UX unclear for inexperienced users | Minor (2) | Retiree |
+| 1 | Add to Cart broken — cart stays empty, View Cart link fails | Critical (5) | Kid, Parent, Power User |
+| 2 | Missing help or contact section | Major (4) | Retiree |
 
 The system found these bugs through persona behaviour alone — no test scripts, no prior knowledge of the app, no assertions written by a human.
 
