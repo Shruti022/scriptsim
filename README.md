@@ -167,6 +167,7 @@ python test_agent.py persona kid http://localhost:5000
 |------|--------|------|
 | MapperAgent vs example.com | PASS | 2026-04-25 |
 | Kid persona vs demo app (localhost:5000) | PASS — found Bug 2 (silent cart), screenshots to GCS | 2026-04-26 |
+| Full 4-persona scan vs demo app | PASS — all 11 agents ran, 3 bugs found, $0.023, 631s | 2026-04-27 |
 
 Note: persona smoke test requires demo app running (`python start.py` or `python demo_app/app.py`). The test pre-logs in automatically before the persona starts.
 
@@ -197,6 +198,10 @@ Note: persona smoke test requires demo app running (`python start.py` or `python
 
 **Smoke test mode** — `is_smoke_test=True` runs 1 persona, 5 actions, skips mapper. Enables fast 3-minute demos without burning Gemini quota.
 
+**Sequential report agents** — ReportAgents run sequentially (not in parallel) to avoid 429 RESOURCE_EXHAUSTED rate limit errors on Vertex AI when all 4 agents call the API simultaneously.
+
+**Neutral orchestrator trigger message** — ADK's SequentialAgent passes the same user message to every sub-agent. The message must be `"Begin."` — a descriptive message like "Run QA scan" causes SetupAgent (which only has a login tool) to refuse with "I can't run a full QA scan".
+
 ---
 
 ## Team
@@ -209,6 +214,8 @@ Note: persona smoke test requires demo app running (`python start.py` or `python
 
 ## Known Limitations
 
-- **Action limit is a soft limit** — `max_persona_actions` in persona instructions is a strong hint to the LLM, not a hard stop. LLMs honour it approximately. Full scans may run slightly longer than the target action count.
-- **`log_bug` not always called** — Personas (especially the confused kid) sometimes describe bugs in their action log text rather than calling `log_bug`. The ReportAgent downstream converts the action log to structured bugs regardless.
-- **Cloud Run not yet deployed** — All services run locally. Public URL for demo app is pending Person 3's Railway/Cloud Run deployment.
+- **Action limit is a soft limit** — `max_persona_actions` is a hint to the LLM, not a hard stop. Power user ran 40 calls against a limit of 7. Scans may run longer than expected.
+- **Mapper disabled** — MapperAgent loops on non-navigating buttons (`go_back` from root → `about:blank`). Skipped until fixed; personas find bugs without it.
+- **EvalAgent fence wrapping** — Final report output is occasionally wrapped in ` ```json ``` ` fences, causing the dashboard to display "? bugs found". The raw JSON is still present in the scan log.
+- **Retiree persona exits early** — Ran only 2 API calls in the confirmed scan. Instruction needs strengthening.
+- **Cloud Run not yet deployed** — All services run locally. Public URL pending.

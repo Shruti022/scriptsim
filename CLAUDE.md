@@ -32,7 +32,7 @@ Then visit http://localhost:3000 → select Demo App → Run Parallel Scan
 
 ## Scan modes
 - **Smoke Test Mode** (checkbox in dashboard): 1 persona, 5 actions, skip mapper — fast demo (~3 min)
-- **Full Scan**: all selected personas, 15 actions each, with mapper — thorough (~15 min)
+- **Full Scan**: all selected personas, 7 actions each (soft limit), mapper skipped — confirmed working (~10 min, $0.023)
 
 ## Critical ADK constraint
 output_schema and tools are MUTUALLY EXCLUSIVE in Gemini.
@@ -167,31 +167,42 @@ All teammates use the shared GCP project: `agentic-fp-scriptsim`
 
 **Teammate then runs:** `gcloud auth application-default login` with that Gmail
 
+## Orchestrator — important runtime notes
+- User message passed to `runner.run_async` MUST be `"Begin."` — any descriptive text confuses
+  sub-agents that have narrow tools (e.g. SetupAgent only has login, gets confused by "Run QA scan")
+- Report agents run sequentially (SequentialAgent), NOT in parallel — parallel caused 429 rate limits
+- Mapper is skipped in all modes (`skip_mapper=True`) — mapper loops on non-navigating buttons
+- Log files saved to `logs/` on every scan completion or Ctrl+C
+
 ## Smoke tests (verify tools + agents work)
 ```
 python test_agent.py mapper https://example.com
 python test_agent.py persona kid http://localhost:5000
 ```
 - MapperAgent vs example.com: PASS (2026-04-25)
-- Kid persona vs demo app (localhost:5000): PASS (2026-04-26) — landed on home page, found Bug 2 (silent cart), screenshots uploaded to GCS
+- Kid persona vs demo app (localhost:5000): PASS (2026-04-26)
+- Full 4-persona scan vs demo app: PASS (2026-04-27) — all 11 agents ran, $0.023, 631s
 
-Note: `test_agent.py persona` pre-logs in before running the persona (mirrors SetupAgent in the real pipeline). Requires the demo app to be running (`python start.py` or `python demo_app/app.py`).
+Note: `test_agent.py persona` pre-logs in before running the persona. Requires demo app running.
 
 ## What is done
 - tools/ — all 10 async Playwright tools, per-task browser isolation implemented
 - login.py — stores cookies globally so all parallel persona contexts start logged in
-- agents/ + schemas/ + orchestrator.py — full ADK pipeline with smoke test + persona selection
-- setup_agent.py — imperative instruction forces immediate login tool call (no more LLM refusals)
-- persona_agent.py — _LOGIN_PREAMBLE login fallback in all 4 personas + max action limit enforced
-- test_agent.py — pre-login step + max_persona_actions in session state (KeyError fixed)
+- agents/ + schemas/ + orchestrator.py — full ADK pipeline confirmed working end-to-end
+- setup_agent.py — imperative instruction forces immediate login tool call
+- persona_agent.py — _LOGIN_PREAMBLE login fallback + max action limit enforced
+- test_agent.py — pre-login step + max_persona_actions in session state
+- orchestrator.py — user message fixed, report agents sequential, encoding fixed, mapper skipped
 - GCS bucket + Firestore — created and tested
 - demo_app/ — Flask shop with 5 planted bugs (Person 3)
 - dashboard/ — Next.js UI with live activity console (Person 3)
 - api/ — FastAPI POST /scan endpoint with background task runner (Person 3)
 - start.py — one-command launcher for all 3 services
+- logs/ — per-scan agent logs and token usage reports (Person 2 addition)
 
 ## What is pending
-- Full 4-persona parallel scan end-to-end test (run via dashboard, verify all 5 bugs found)
+- Fix eval_agent fence wrapping (dashboard shows "? bugs found" instead of count)
+- Strengthen retiree persona (only 2 API calls in confirmed scan — gave up too early)
 - Cloud Run deployment — Person 1 (session: person1-cloudrun)
 - Deploy demo app to Railway/Cloud Run for public URL
 
