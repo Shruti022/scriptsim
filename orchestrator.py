@@ -39,6 +39,17 @@ from tools.browser import start_browser, close_browser, inject_cookies, set_zoom
 
 PERSONAS = ["kid", "power_user", "parent", "retiree"]
 
+
+def _strip_fences(text: str) -> str:
+    """Remove ```json ... ``` or ``` ... ``` wrappers that LLMs sometimes add."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text[text.index("\n") + 1:] if "\n" in text else text[3:]
+    if text.endswith("```"):
+        text = text[:text.rfind("```")]
+    return text.strip()
+
+
 # ── Logs directory ───────────────────────────────────────────────────────────
 LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 os.makedirs(LOGS_DIR, exist_ok=True)
@@ -333,7 +344,7 @@ async def run_scan(
     final_report_raw = updated_session.state.get("final_report", "{}")
 
     try:
-        final_report = json.loads(final_report_raw)
+        final_report = json.loads(_strip_fences(final_report_raw))
     except (json.JSONDecodeError, TypeError):
         final_report = {"raw": final_report_raw}
 

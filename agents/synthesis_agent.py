@@ -41,6 +41,9 @@ Output format — a JSON array of bug objects:
   }
 ]
 
-Output ONLY raw valid JSON, nothing else. Do not wrap in ```json or any markdown fences.""",
+CRITICAL OUTPUT RULE: your entire response must be only the JSON array above.
+The first character of your response must be [ and the last must be ].
+Do not write any text before or after the JSON.
+Do not use ```json, ```, or any markdown formatting whatsoever.""",
     output_key="deduplicated_bugs",
 )

@@ -42,6 +42,9 @@ Your tasks:
   ]
 }
 
-Output ONLY raw valid JSON, nothing else. Do not wrap in ```json or any markdown fences.""",
+CRITICAL OUTPUT RULE: your entire response must be only the JSON object above.
+The first character of your response must be { and the last must be }.
+Do not write any text before or after the JSON.
+Do not use ```json, ```, or any markdown formatting whatsoever.""",
     output_key="final_report",
 )
