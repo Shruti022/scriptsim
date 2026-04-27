@@ -62,8 +62,18 @@ async def run_persona(persona: str, url: str):
     from google.adk.sessions import InMemorySessionService
     from google.genai import types
     from agents.persona_agent import make_persona_agent
+    from tools.login import login
 
     print(f"\n=== PersonaAgent [{persona}] smoke test on {url} ===")
+
+    # Pre-authenticate so persona starts on the app (mirrors SetupAgent in real pipeline)
+    print("  Pre-login: authenticating before persona starts...")
+    login_result = await login(
+        url=f"{url}/login",
+        email="test@scriptsim.com",
+        password="TestPass123!",
+    )
+    print(f"  Login result: {login_result[:80]}")
 
     agent = make_persona_agent(persona)
     session_service = InMemorySessionService()
@@ -75,7 +85,11 @@ async def run_persona(persona: str, url: str):
     session = await session_service.create_session(
         app_name="scriptsim_test",
         user_id="tester",
-        state={"scan_id": "test-001", "target_url": url},
+        state={
+            "scan_id": "test-001",
+            "target_url": url,
+            "max_persona_actions": 5,
+        },
     )
 
     async for event in runner.run_async(
