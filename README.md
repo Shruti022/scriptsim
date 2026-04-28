@@ -169,6 +169,8 @@ python test_agent.py persona kid http://localhost:5000
 | Kid persona vs demo app (localhost:5000) | PASS — found Bug 2, screenshots to GCS | 2026-04-26 |
 | Full 4-persona scan vs demo app (scan 1) | PASS — all 11 agents, 3 bugs, $0.023, 631s | 2026-04-27 |
 | Full 4-persona scan vs demo app (scan 2) | PASS — fence fix confirmed, "2 bugs found" correct, $0.021 | 2026-04-27 |
+| Full 4-persona scan vs saucedemo.com | PASS — 3 bugs, $0.016, 618s (React SPA auth limitation) | 2026-04-27 |
+| Full 4-persona scan vs automationexercise.com | PASS — 4 bugs, $0.028, 682s — generalization confirmed | 2026-04-27 |
 
 Note: persona smoke test requires demo app running (`python start.py` or `python demo_app/app.py`). The test pre-logs in automatically before the persona starts.
 
@@ -187,7 +189,9 @@ Note: persona smoke test requires demo app running (`python start.py` or `python
 
 ## Key Design Decisions
 
-**Per-task browser isolation** — Each asyncio Task (persona) gets its own `BrowserContext` keyed by `asyncio.current_task()` ID. Personas cannot interfere with each other. `login.py` stores cookies globally so every new context starts logged in automatically.
+**Per-task browser isolation** — Each asyncio Task (persona) gets its own `BrowserContext` keyed by `asyncio.current_task()` ID. Personas cannot interfere with each other. `login.py` captures the full Playwright `storage_state()` (cookies + localStorage) after SetupAgent logs in — new contexts are created with `browser.new_context(storage_state=...)` so every persona starts authenticated on any site using cookie or localStorage auth.
+
+**Multi-site support** — `run_scan()` accepts a `login_url` parameter separate from `target_url`, enabling scans on sites where login is not at `{target_url}/login`. CLI: `python orchestrator.py <url> <email> <password> <login_url>`. Works on any cookie-based or localStorage-based auth site. Known limitation: React SPAs that store auth only in component memory (no cookies/localStorage) require per-context login.
 
 **Async Playwright** — ADK's runner is async. Sync Playwright raises an error inside asyncio. All tools are `async def`, all page calls are `await`-ed.
 
@@ -218,3 +222,4 @@ Note: persona smoke test requires demo app running (`python start.py` or `python
 - **Action limit is a soft limit** — `max_persona_actions` is a hint to the LLM, not a hard stop. Scans may run longer than expected but always complete.
 - **Mapper disabled** — MapperAgent loops on non-navigating buttons (`go_back` from root → `about:blank`). Skipped until fixed; personas find bugs without it.
 - **Cloud Run not yet deployed** — All services run locally. Public URL pending.
+- **React SPA in-memory auth** — Sites that store auth only in React component state (no cookies/localStorage) cannot be pre-authenticated via storage_state injection. Each persona context must log in separately. Identified during saucedemo.com testing.

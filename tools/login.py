@@ -1,8 +1,8 @@
 import json
 try:
-    from tools.browser import get_page, inject_cookies
+    from tools.browser import get_page, inject_cookies, inject_storage_state
 except ImportError:
-    from browser import get_page, inject_cookies
+    from browser import get_page, inject_cookies, inject_storage_state
 
 
 async def login(url: str, email: str, password: str) -> str:
@@ -15,8 +15,10 @@ async def login(url: str, email: str, password: str) -> str:
         await page.wait_for_load_state("networkidle", timeout=10000)
 
         await page.locator(
-            "input[type='email'], input[name='email'], "
-            "input[placeholder*='email' i], input[id*='email' i]"
+            "input[type='email'], input[name='email'], input[name='username'], "
+            "input[name='user-name'], input[placeholder*='email' i], "
+            "input[id*='email' i], input[placeholder*='username' i], "
+            "input[placeholder*='user' i]"
         ).first.fill(email)
 
         await page.locator("input[type='password']").first.fill(password)
@@ -30,7 +32,12 @@ async def login(url: str, email: str, password: str) -> str:
 
         cookies = await page.context.cookies()
 
-        # Store cookies globally — new persona contexts will get them injected
+        # Capture full storage state (cookies + localStorage) so persona contexts
+        # start authenticated on ANY site, including SPAs that use localStorage.
+        storage_state = await page.context.storage_state()
+        await inject_storage_state(storage_state)
+
+        # Legacy cookie injection kept for backward compatibility
         await inject_cookies(cookies)
 
         return json.dumps({

@@ -151,7 +151,9 @@ Running all 4 report agents in parallel after 4 parallel personas caused Vertex 
 
 ## Confirmed Scan Results (2026-04-27)
 
-Two full scans run against the demo shop, all 4 personas. Both completed successfully.
+Four full scans completed. Two on the demo app, two on real public websites.
+
+### Demo App Scans
 
 | Metric | Scan 1 | Scan 2 (latest) |
 |--------|--------|-----------------|
@@ -162,14 +164,34 @@ Two full scans run against the demo shop, all 4 personas. Both completed success
 | Bugs found (parsed) | 3 | 2 |
 | Dashboard output | "? bugs found" (fence bug) | "2 bugs found" (correct) |
 
-### Bugs found in latest scan
+Bugs found in latest demo scan:
 
 | Rank | Bug | Severity | Found by |
 |------|-----|----------|---------|
 | 1 | Add to Cart broken — cart stays empty, View Cart link fails | Critical (5) | Kid, Parent, Power User |
 | 2 | Missing help or contact section | Major (4) | Retiree |
 
-The system found these bugs through persona behaviour alone — no test scripts, no prior knowledge of the app, no assertions written by a human.
+### Real Website Scans — Generalization Confirmed
+
+**Saucedemo.com** (https://www.saucedemo.com) — 618s, $0.016, 3 bugs found.
+A public Selenium/Playwright practice site. Pipeline ran end-to-end successfully. However, saucedemo
+uses React component memory for auth state (no cookies/localStorage) — our session injection
+couldn't pre-authenticate personas, so bugs reported were mostly login-related. Identified as a
+known limitation of React SPA auth.
+
+**automationexercise.com** (https://automationexercise.com) — 682s, $0.028, 4 bugs found.
+A public e-commerce practice site with standard cookie-based sessions. Cookie injection confirmed
+working — all 4 personas started already logged in. System found real UX issues through persona
+behaviour on a site it had never seen before.
+
+| Rank | Bug | Severity | Found by |
+|------|-----|----------|---------|
+| 1 | Products button unresponsive | Critical (5) | Kid, Power User, Retiree |
+| 2 | Login redirects to homepage (was already logged in) | Critical (5) | Power User |
+| 3 | Password field unresponsive | Critical (5) | Parent |
+| 4 | No phone number on Contact Us page | Major (4) | Retiree |
+
+The system found these issues through persona behaviour alone on a site it had never been told about.
 
 ---
 

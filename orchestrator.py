@@ -193,12 +193,17 @@ async def run_scan(
     target_url: str,
     login_email: str = "test@scriptsim.com",
     login_password: str = "TestPass123!",
+    login_url: str = None,
     scan_id: str = None,
     personas: list[str] = None,
     is_smoke_test: bool = False,
 ) -> dict:
     """Run a ScriptSim scan. Returns the final ranked report."""
     global _current_agent, _agent_start_time, _scan_start_time, _current_scan_id
+
+    if login_url is None:
+        login_url = f"{target_url}/login"
+
     _TOKEN_LOG.clear()
     _AGENT_RUNS.clear()
     _agent_log_lines.clear()
@@ -258,6 +263,7 @@ async def run_scan(
     initial_state = {
         "scan_id": scan_id,
         "target_url": target_url,
+        "login_url": login_url,
         "login_email": login_email,
         "login_password": login_password,
         "personas": personas,
@@ -368,7 +374,16 @@ async def _setup_persona_browser(target_url: str, cookies_json: str, persona: st
 if __name__ == "__main__":
     import sys
 
-    url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5000"
+    url          = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5000"
+    email        = sys.argv[2] if len(sys.argv) > 2 else "test@scriptsim.com"
+    password     = sys.argv[3] if len(sys.argv) > 3 else "TestPass123!"
+    login_url_arg = sys.argv[4] if len(sys.argv) > 4 else None  # None -> auto {target_url}/login
+
     print(f"Running ScriptSim scan against: {url}")
-    result = asyncio.run(run_scan(target_url=url))
+    result = asyncio.run(run_scan(
+        target_url=url,
+        login_email=email,
+        login_password=password,
+        login_url=login_url_arg,
+    ))
     print(json.dumps(result["report"], indent=2))

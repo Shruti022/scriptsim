@@ -8,9 +8,9 @@ from tools.log_bug import log_bug
 from tools.go_back import go_back
 
 _LOGIN_PREAMBLE = """IMPORTANT — do this first:
-Call get_page_state. If the URL contains "/login", you must log in before exploring:
-1. type_text selector="Email" text="test@scriptsim.com"
-2. type_text selector="Password" text="TestPass123!"
+Call get_page_state. If the page shows a login form (a password field is visible, or the URL contains "login"), you must log in before exploring:
+1. type_text selector="Email" text="{login_email}" (if no email field, try selector="Username" or selector="user-name")
+2. type_text selector="Password" text="{login_password}"
 3. click_element selector="Login"
 4. Call get_page_state to confirm you are now on the home page.
 Only start your persona behaviour after you are logged in.

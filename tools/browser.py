@@ -13,6 +13,7 @@ _browser: Browser = None
 _contexts: dict = {}        # task_id → (BrowserContext, Page)
 _default_url: str = None
 _default_cookies: list = []
+_default_storage_state: dict = None  # Full storage state (cookies + localStorage)
 
 
 def _task_id() -> int:
@@ -24,9 +25,15 @@ async def _ensure_context(url: str = None) -> Page:
     """Return the Page for the current task, creating one if needed."""
     tid = _task_id()
     if tid not in _contexts:
-        context = await _browser.new_context(viewport={"width": 1280, "height": 800})
-        if _default_cookies:
-            await context.add_cookies(_default_cookies)
+        if _default_storage_state:
+            context = await _browser.new_context(
+                viewport={"width": 1280, "height": 800},
+                storage_state=_default_storage_state,
+            )
+        else:
+            context = await _browser.new_context(viewport={"width": 1280, "height": 800})
+            if _default_cookies:
+                await context.add_cookies(_default_cookies)
         page = await context.new_page()
         nav_url = url or _default_url
         if nav_url:
@@ -38,9 +45,10 @@ async def _ensure_context(url: str = None) -> Page:
 
 async def start_browser(url: str = None) -> Page:
     """Start the shared browser and create a context for the current task."""
-    global _playwright, _browser, _default_url, _default_cookies
+    global _playwright, _browser, _default_url, _default_cookies, _default_storage_state
     _default_url = url
     _default_cookies = []
+    _default_storage_state = None
     # Close any stale browser from a previous scan
     if _browser:
         try:
@@ -67,6 +75,16 @@ async def get_page() -> Page:
     return await _ensure_context()
 
 
+async def inject_storage_state(state: dict):
+    """Store full browser storage state (cookies + localStorage) for persona contexts.
+    Called by login.py after a successful login. Works for cookie-based AND
+    localStorage-based auth (SPAs like saucedemo.com)."""
+    global _default_storage_state, _default_cookies
+    _default_storage_state = state
+    if state and "cookies" in state:
+        _default_cookies = state["cookies"]
+
+
 async def inject_cookies(cookies: list[dict]):
     """Inject cookies into the current context AND store them for future contexts.
     Called by login.py after a successful login so all persona contexts start logged in."""
@@ -86,7 +104,7 @@ async def set_zoom(percent: int):
 
 async def close_browser():
     """Close all contexts and the browser. Called after every scan."""
-    global _browser, _playwright, _contexts, _default_cookies, _default_url
+    global _browser, _playwright, _contexts, _default_cookies, _default_url, _default_storage_state
     for context, _ in list(_contexts.values()):
         try:
             await context.close()
@@ -94,6 +112,7 @@ async def close_browser():
             pass
     _contexts.clear()
     _default_cookies = []
+    _default_storage_state = None
     _default_url = None
     if _browser:
         try:

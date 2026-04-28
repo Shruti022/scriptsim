@@ -57,21 +57,30 @@ async def run_mapper(url: str):
     print(result[:800] if result else "EMPTY")
 
 
-async def run_persona(persona: str, url: str):
+async def run_persona(
+    persona: str,
+    url: str,
+    login_url: str = None,
+    email: str = "test@scriptsim.com",
+    password: str = "TestPass123!",
+):
     from google.adk.runners import Runner
     from google.adk.sessions import InMemorySessionService
     from google.genai import types
     from agents.persona_agent import make_persona_agent
     from tools.login import login
 
+    if login_url is None:
+        login_url = f"{url}/login"
+
     print(f"\n=== PersonaAgent [{persona}] smoke test on {url} ===")
 
     # Pre-authenticate so persona starts on the app (mirrors SetupAgent in real pipeline)
     print("  Pre-login: authenticating before persona starts...")
     login_result = await login(
-        url=f"{url}/login",
-        email="test@scriptsim.com",
-        password="TestPass123!",
+        url=login_url,
+        email=email,
+        password=password,
     )
     print(f"  Login result: {login_result[:80]}")
 
@@ -115,12 +124,15 @@ async def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "mapper"
 
     if mode == "persona":
-        persona = sys.argv[2] if len(sys.argv) > 2 else "kid"
-        url = sys.argv[3] if len(sys.argv) > 3 else "https://example.com"
+        persona      = sys.argv[2] if len(sys.argv) > 2 else "kid"
+        url          = sys.argv[3] if len(sys.argv) > 3 else "https://example.com"
+        login_url    = sys.argv[4] if len(sys.argv) > 4 else None
+        email        = sys.argv[5] if len(sys.argv) > 5 else "test@scriptsim.com"
+        password     = sys.argv[6] if len(sys.argv) > 6 else "TestPass123!"
         print(f"Starting browser for persona [{persona}]...")
         await start_browser(url)
         try:
-            await run_persona(persona, url)
+            await run_persona(persona, url, login_url=login_url, email=email, password=password)
         finally:
             await close_browser()
             print("Browser closed.")

@@ -47,10 +47,12 @@ ReportAgent reads via {action_log_kid} in its instruction template.
 
 ## Browser isolation (critical — how parallel personas work)
 Each asyncio Task (persona) gets its own isolated BrowserContext via `_contexts` dict
-keyed by `asyncio.current_task()` ID. login.py stores cookies globally in `_default_cookies`
-after SetupAgent logs in — new persona contexts inject these cookies automatically so
-every persona starts already logged in at the target URL.
+keyed by `asyncio.current_task()` ID. login.py captures the full Playwright `storage_state()`
+after SetupAgent logs in — new persona contexts are created with `browser.new_context(storage_state=...)`
+so they start already authenticated on any site that uses cookies or localStorage for auth.
 Never use a single global `_page` — that was the old broken design.
+Known limitation: React SPAs that store auth only in component memory (e.g. saucedemo.com)
+cannot be pre-authenticated this way — personas must self-login in those cases.
 
 ## Person 1 owns (browser layer)
 - tools/ directory — all Playwright tool functions
@@ -173,28 +175,34 @@ All teammates use the shared GCP project: `agentic-fp-scriptsim`
 - Report agents run sequentially (SequentialAgent), NOT in parallel — parallel caused 429 rate limits
 - Mapper is skipped in all modes (`skip_mapper=True`) — mapper loops on non-navigating buttons
 - Log files saved to `logs/` on every scan completion or Ctrl+C
+- `run_scan()` accepts `login_url` param (defaults to `{target_url}/login`) — use for sites
+  where login is not at `/login` (e.g. saucedemo root URL, or custom paths)
+- CLI: `python orchestrator.py <target_url> <email> <password> <login_url>`
 
 ## Smoke tests (verify tools + agents work)
 ```
 python test_agent.py mapper https://example.com
 python test_agent.py persona kid http://localhost:5000
+# Custom login URL / credentials (for non-standard sites):
+python test_agent.py persona kid https://mysite.com https://mysite.com/signin user@test.com pass123
 ```
 - MapperAgent vs example.com: PASS (2026-04-25)
 - Kid persona vs demo app (localhost:5000): PASS (2026-04-26)
 - Full 4-persona scan — scan 1: PASS (2026-04-27) — all 11 agents, $0.023, 631s
 - Full 4-persona scan — scan 2 (fence fix): PASS (2026-04-27) — "2 bugs found" correct, $0.021, 708s
+- Full 4-persona scan — saucedemo.com: PASS (2026-04-27) — 3 bugs, $0.016, 618s (React SPA auth limitation noted)
+- Full 4-persona scan — automationexercise.com: PASS (2026-04-27) — 4 bugs, $0.028, 682s — GENERALIZATION CONFIRMED
 
 Note: `test_agent.py persona` pre-logs in before running the persona. Requires demo app running.
 
 ## What is done
 - tools/ — all 10 async Playwright tools, per-task browser isolation implemented
-- login.py — stores cookies globally so all parallel persona contexts start logged in
+- login.py — captures full storage_state (cookies + localStorage) so persona contexts start authenticated
+- browser.py — inject_storage_state() + new contexts created with storage_state= for any auth mechanism
 - agents/ + schemas/ + orchestrator.py — full ADK pipeline confirmed working end-to-end
-- setup_agent.py — imperative instruction forces immediate login tool call
-- persona_agent.py — _LOGIN_PREAMBLE login fallback + max action limit enforced
-- test_agent.py — pre-login step + max_persona_actions in session state
-- orchestrator.py — user message fixed, report agents sequential, encoding fixed, mapper skipped
-- orchestrator.py — _strip_fences() added, dashboard now shows correct bug count
+- setup_agent.py — uses {login_url} (not hardcoded /login), imperative instruction forces login call
+- persona_agent.py — _LOGIN_PREAMBLE uses {login_email}/{login_password} from session state
+- orchestrator.py — login_url param, multi-site CLI, user message fixed, report sequential, fences fixed
 - eval_agent.py + synthesis_agent.py — stronger anti-fence instructions (first/last char rule)
 - GCS bucket + Firestore — created and tested
 - demo_app/ — Flask shop with 5 planted bugs (Person 3)
@@ -202,6 +210,7 @@ Note: `test_agent.py persona` pre-logs in before running the persona. Requires d
 - api/ — FastAPI POST /scan endpoint with background task runner (Person 3)
 - start.py — one-command launcher for all 3 services
 - logs/ — per-scan agent logs and token usage reports (Person 2 addition)
+- Generalization confirmed — full scan completed against automationexercise.com (real public site)
 
 ## What is pending
 - Cloud Run deployment — Person 1 (session: person1-cloudrun)

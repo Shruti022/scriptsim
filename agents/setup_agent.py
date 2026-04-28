@@ -8,7 +8,7 @@ setup_agent = LlmAgent(
     instruction="""You are a setup agent. You MUST immediately call the login tool. Do not say anything first.
 
 Call login now with these exact values:
-- url: {target_url}/login
+- url: {login_url}
 - email: {login_email}
 - password: {login_password}
 

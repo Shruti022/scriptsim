@@ -1,6 +1,6 @@
 # ScriptSim — Dev Status & Error Log
 
-**Last updated:** 2026-04-27 (evening)
+**Last updated:** 2026-04-27 (night — generalization testing session)
 **GitHub:** https://github.com/Shruti022/scriptsim
 
 ---
@@ -31,6 +31,9 @@
 | Kid persona smoke test vs demo app | All | PASS (2026-04-26) |
 | Full 4-persona scan — first confirmed run | All | PASS (2026-04-27) — 3 bugs, $0.023, 631s |
 | Full 4-persona scan — fence fix confirmed | All | PASS (2026-04-27) — 2 bugs, $0.021, 708s, "N bugs found" correct |
+| Multi-site generalization fix (login_url, storage_state) | Person 1 | DONE (2026-04-27) |
+| Full 4-persona scan vs saucedemo.com (public site) | All | PASS (2026-04-27) — 3 bugs, $0.016, 618s (auth limitation documented) |
+| Full 4-persona scan vs automationexercise.com (public site) | All | PASS (2026-04-27) — 4 bugs, $0.028, 682s — generalization confirmed |
 
 ---
 
@@ -48,7 +51,7 @@
 | `tools/hover_element.py` | Hover to reveal tooltips | Done + Tested |
 | `tools/take_screenshot.py` | Screenshot → GCS `gs://scriptsim-screenshots/` | Done + Tested |
 | `tools/log_bug.py` | Write bug to Firestore `scans/{scan_id}/bugs/` | Done + Tested |
-| `tools/login.py` | Login form + stores cookies globally for parallel personas | Done + Tested |
+| `tools/login.py` | Login form + stores full storage_state (cookies + localStorage) globally | Done + Tested |
 | `tools/go_back.py` | Browser back via `page.go_back()` | Done + Tested |
 
 ### agents/ and orchestrator.py — fixes applied
@@ -66,6 +69,16 @@
 | `agents/eval_agent.py` | Stronger anti-fence instruction — specifies exact first/last character | Fixed |
 | `agents/synthesis_agent.py` | Stronger anti-fence instruction — specifies exact first/last character | Fixed |
 | `test_agent.py` | Pre-login step + `max_persona_actions` in session state | Fixed |
+| `tools/login.py` | Expanded username locator (handles Username, user-name, not just email fields) | Fixed |
+| `tools/login.py` | Captures full `storage_state()` (cookies + localStorage) via `inject_storage_state()` | Fixed |
+| `tools/browser.py` | Added `inject_storage_state()` + `_default_storage_state` global | Fixed |
+| `tools/browser.py` | New contexts use `storage_state=` in `new_context()` — works for any site's auth | Fixed |
+| `agents/setup_agent.py` | Uses `{login_url}` instead of hardcoded `{target_url}/login` | Fixed |
+| `agents/persona_agent.py` | `_LOGIN_PREAMBLE` uses `{login_email}` / `{login_password}` from session state (not hardcoded) | Fixed |
+| `agents/persona_agent.py` | Login detection checks for visible password field, not just `/login` in URL | Fixed |
+| `orchestrator.py` | Added `login_url` parameter to `run_scan()` (defaults to `{target_url}/login`) | Fixed |
+| `orchestrator.py` | CLI now accepts email, password, login_url as args 2/3/4 | Fixed |
+| `test_agent.py` | Accepts `login_url`, `email`, `password` as CLI args 4/5/6 | Fixed |
 
 ### GCP Infrastructure
 
@@ -92,6 +105,8 @@
 | Kid persona vs demo app (localhost:5000) | PASS (2026-04-26) — landed on home page, found Bug 2 |
 | Full 4-persona scan vs demo app (scan 1) | PASS (2026-04-27) — all 11 agents, 3 bugs, $0.023, 631s |
 | Full 4-persona scan vs demo app (scan 2, fence fix) | PASS (2026-04-27) — 2 bugs, "2 bugs found" parsed correctly, $0.021, 708s |
+| Full 4-persona scan vs saucedemo.com | PASS (2026-04-27) — 3 bugs, $0.016, 618s (bugs are auth-related; saucedemo uses React in-memory auth) |
+| Full 4-persona scan vs automationexercise.com | PASS (2026-04-27) — 4 bugs, $0.028, 682s, all 11 agents, generalization confirmed |
 
 ---
 
@@ -136,6 +151,59 @@
 ---
 
 ## Full Scan Results
+
+### Scan 3 — saucedemo.com (public site, first generalization test) (2026-04-27)
+Scan ID: `38fe688b-3da1-4390-8b0f-a8fa74b20478` | Elapsed: 618s | Cost: $0.016 | API calls: 50
+Target: `https://www.saucedemo.com` | Credentials: `standard_user` / `secret_sauce`
+
+All 11 agents ran successfully. 3 bugs found and reported. However: saucedemo.com stores auth
+state only in React component memory (no cookies/localStorage). Cookie injection has no effect —
+each persona context started on the login page. Personas tried to self-login with mixed results.
+The 3 bugs found are all auth-related (login loop, unresponsive submit, etc.).
+
+**Conclusion:** Pipeline generalizes to public sites. saucedemo is a special case (React in-memory
+auth). Cookie-based sites work correctly.
+
+| Rank | Bug | Severity | Personas |
+|------|-----|----------|---------|
+| 1 | Repeated redirection to login page after successful login | CRITICAL (5) | power_user, parent |
+| 2 | Submit button unresponsive, leads to blank page | CRITICAL (5) | retiree |
+| 3 | Add to Cart button unresponsive (persona was on login page) | MINOR (2) | kid |
+
+### Scan 4 — automationexercise.com (public e-commerce, generalization confirmed) (2026-04-27)
+Scan ID: `decef02b-2d45-45a9-abe7-565f5def443b` | Elapsed: 682s | Cost: $0.028 | API calls: 63
+Target: `https://automationexercise.com` | Credentials: registered test account
+
+Cookie injection verified working: new contexts land already logged in. All 11 agents ran. 4 bugs
+found in structured report. Site has heavy ad overlays which blocked some navigation clicks —
+personas reported these as bugs (legitimately — ads covering UI is a real UX issue).
+
+| Agent | API Calls | Tokens |
+|-------|-----------|--------|
+| setup_agent | 1 | 203 |
+| persona_kid | 18 | 57,824 |
+| persona_power_user | 16 | 50,347 |
+| persona_parent | 9 | 22,802 |
+| persona_retiree | 13 | 26,983 |
+| report_kid | 1 | 15,854 |
+| report_power_user | 1 | 16,096 |
+| report_parent | 1 | 16,290 |
+| report_retiree | 1 | 16,656 |
+| synthesis_agent | 1 | 18,630 |
+| eval_agent | 1 | 20,193 |
+
+| Rank | Bug | Severity | Personas |
+|------|-----|----------|---------|
+| 1 | Products button unresponsive on homepage | CRITICAL (5) | kid, power_user, retiree |
+| 2 | Login redirects immediately back to homepage | CRITICAL (5) | power_user |
+| 3 | Password field unresponsive on login page | CRITICAL (5) | parent |
+| 4 | No phone number; no search bar for support | MAJOR (4) | retiree |
+
+Note: Bugs 1/3 are likely caused by ad overlays intercepting clicks. Bug 2 is an artifact —
+personas were already logged in via cookies, so "Signup / Login" correctly redirected them home.
+Bug 4 is a real UX finding by the retiree persona.
+
+---
 
 ### Scan 1 — First confirmed end-to-end run (2026-04-27)
 Scan ID: `9e4aec31-6f8f-4051-acb3-d11b7ef28495` | Elapsed: 631s | Cost: $0.023 | API calls: 71
@@ -304,6 +372,53 @@ stored as `{"raw": "...fenced string..."}` and the dashboard showed "? bugs foun
    harder for the model to violate without noticing.
 **Confirmed resolved** — second full scan showed "Scan complete. 2 bugs found." **Resolved.**
 
+### Error 26 — `setup_agent.py` hardcoded `/login` suffix, breaks non-standard login URLs
+**Problem:** `setup_agent.py` instruction said `url: {target_url}/login`. Sites like
+saucedemo.com have login at the root URL (`/`), not `/login`. SetupAgent tried to navigate to
+`https://www.saucedemo.com/login` which doesn't exist.
+**Fix:** Added `login_url` as a separate parameter throughout the stack:
+- `orchestrator.py run_scan()` now accepts `login_url` (defaults to `{target_url}/login`)
+- `initial_state` includes `login_url`
+- `setup_agent.py` now uses `{login_url}` in its instruction
+- CLI: `python orchestrator.py <url> <email> <password> <login_url>`
+**Resolved.**
+
+### Error 27 — `login.py` couldn't find username fields (only matched email-type inputs)
+**Problem:** `login.py` locator only matched `input[type='email']`, `input[name='email']`, and
+`input[placeholder*='email' i]`. Sites using a "Username" field (saucedemo, automationexercise)
+were not matched — the login tool returned an error and SetupAgent failed.
+**Fix:** Expanded locator to also include `input[name='username']`, `input[name='user-name']`,
+`input[placeholder*='username' i]`, `input[placeholder*='user' i]`. **Resolved.**
+
+### Error 28 — Cookie injection doesn't work for React SPA sites (saucedemo)
+**Problem:** Saucedemo.com stores session state only in React component memory — no localStorage,
+no sessionStorage, no meaningful cookies. Playwright's `storage_state()` captures nothing useful.
+Each new browser context starts a fresh React instance which shows the login page regardless of
+what cookies or localStorage is injected. This is a fundamental limitation of React SPAs that
+don't persist auth state to any browser storage API.
+**Diagnosis:** Playwright diagnostic confirmed: after login, localStorage only contains analytics
+tracking keys (`backtrace-guid`, `backtrace-last-active`), not auth data. A new context with the
+same storage_state still lands on the login page.
+**Resolution:** This is a known limitation. Traditional server-side session sites (cookies) and
+sites using localStorage for auth work correctly. React in-memory auth sites require per-context
+login (personas log in themselves). For the project, the demo app and automationexercise.com
+both use cookie-based auth and work correctly. **Accepted as known limitation.**
+
+### Error 29 — `_LOGIN_PREAMBLE` hardcoded demo app credentials, broke on other sites
+**Problem:** `_LOGIN_PREAMBLE` in `persona_agent.py` had hardcoded `test@scriptsim.com` and
+`TestPass123!`. When scanning saucedemo or automationexercise.com, personas tried to log in
+with the wrong credentials and always failed.
+**Fix:** Changed preamble to use `{login_email}` and `{login_password}` from session state, which
+are set by `orchestrator.py run_scan()` and available to all agents. **Resolved.**
+
+### Error 30 — `_LOGIN_PREAMBLE` only detected login page via `/login` in URL
+**Problem:** Login page detection in the preamble checked `if the URL contains "/login"`. Sites
+like saucedemo.com (`/`) and automationexercise.com (`/login` sometimes, `/` when already logged
+in) were not reliably detected.
+**Fix:** Changed condition to check for a visible password field on the page: "if the page shows
+a login form (a password field is visible, or the URL contains 'login')". More robust across
+different sites. **Resolved.**
+
 ---
 
 ## Design Decisions
@@ -311,7 +426,15 @@ stored as `{"raw": "...fenced string..."}` and the dashboard showed "? bugs foun
 ### Per-task browser isolation
 Each asyncio Task (persona) gets its own `BrowserContext` — isolated cookies, storage, and page.
 `_contexts` dict maps `id(asyncio.current_task())` → `(BrowserContext, Page)`.
-New contexts auto-inject `_default_cookies` (set by login) and navigate to `_default_url`.
+New contexts use `browser.new_context(storage_state=_default_storage_state)` which restores the
+full session state (cookies + localStorage) captured by `login.py` after SetupAgent logs in.
+
+### Full storage_state injection (not just cookies)
+`login.py` captures the full Playwright `storage_state()` after login — this includes cookies AND
+all localStorage entries for every origin. New persona contexts are created with this state, so
+they start already authenticated on any site that persists auth to cookies or localStorage.
+React SPAs that store auth only in component memory (e.g. saucedemo.com) are a known limitation —
+personas must log in themselves in those cases.
 
 ### Async Playwright (not sync)
 ADK is async. Sync Playwright raises error inside asyncio loop. All tools are `async def`.
@@ -358,6 +481,8 @@ login flow before starting persona behaviour. Acts as a fallback if SetupAgent f
 | Action limit is soft — kid/power_user exceed limit | Longer scans, more quota used | Accepted — scans still complete |
 | Mapper loops on non-navigating buttons | Mapper disabled in all modes | Skipped until fixed |
 | Cloud Run not deployed | Services run locally only | Pending |
+| React SPA auth (in-memory state) not injectable | Personas must self-login on such sites | Accepted — known limitation; cookie/localStorage sites work fine |
+| Ad overlays on some public sites block click tools | Some clicks time out on ad-heavy sites | Known — doesn't crash pipeline; persona reports the issue as a bug |
 
 ---
 
