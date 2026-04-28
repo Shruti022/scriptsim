@@ -33,7 +33,7 @@ from agents.setup_agent import setup_agent
 from agents.mapper_agent import mapper_agent
 from agents.persona_agent import make_persona_agent
 from agents.report_agent import make_report_agent
-from agents.synthesis_agent import synthesis_agent
+from agents.synthesis_agent import make_synthesis_agent
 from agents.eval_agent import eval_agent
 from tools.browser import start_browser, close_browser, inject_cookies, set_zoom
 
@@ -178,7 +178,7 @@ def _build_pipeline(personas: list[str], skip_mapper: bool = False) -> Sequentia
             description="ReportAgents convert action logs to structured BugReports (sequential to avoid rate limits).",
             sub_agents=report_agents,
         ),
-        synthesis_agent,
+        make_synthesis_agent(personas),
         eval_agent,
     ])
 
@@ -196,7 +196,7 @@ async def run_scan(
     login_url: str = None,
     scan_id: str = None,
     personas: list[str] = None,
-    is_smoke_test: bool = False,
+    scan_mode: str = "full",
 ) -> dict:
     """Run a ScriptSim scan. Returns the final ranked report."""
     global _current_agent, _agent_start_time, _scan_start_time, _current_scan_id
@@ -213,13 +213,20 @@ async def run_scan(
     if personas is None:
         personas = PERSONAS
 
-    if is_smoke_test:
-        # Smoke test: 1 persona, 5 actions, skip mapper
+    if scan_mode == "fast":
+        # Fast scan: 1 persona, 2 actions, skip mapper (Fast 2 min scan)
+        personas = [personas[0]] if personas else ["kid"]
+        max_mapper_actions = 1
+        max_persona_actions = 2
+        skip_mapper = True
+    elif scan_mode == "smoke":
+        # Smoke scan: 1 persona, 5 actions, skip mapper
         personas = [personas[0]] if personas else ["kid"]
         max_mapper_actions = 1
         max_persona_actions = 5
         skip_mapper = True
     else:
+        # Full scan
         max_mapper_actions = 20
         max_persona_actions = 7
         skip_mapper = True  # mapper loops on this app — skip until fixed
@@ -244,7 +251,7 @@ async def run_scan(
             "target_url": target_url,
             "created_at": firestore.SERVER_TIMESTAMP,
             "status": "running",
-            "is_smoke_test": is_smoke_test,
+            "scan_mode": scan_mode,
             "personas": personas
         })
     except Exception as e:
@@ -323,18 +330,18 @@ async def run_scan(
             if not text_part and author:
                 text_part = f"Agent {author} is thinking..."
 
-            _log(f"[{author}] {text_part[:120]}")
+            _log(f"[{author}] {text_part}")
 
             # Log to Firestore for dashboard live activity
             try:
-                db = firestore.Client()
-                db.collection("scans").document(scan_id).collection("activity").add({
-                    "author": author,
-                    "message": text_part[:500],
+                db_client = firestore.Client()
+                db_client.collection("scans").document(scan_id).collection("activity").add({
+                    "author": str(author) if author else "system",
+                    "message": text_part,
                     "timestamp": firestore.SERVER_TIMESTAMP
                 })
-            except:
-                pass
+            except Exception as e:
+                print(f"Activity write error: {e}")
 
     await close_browser()
 
@@ -353,6 +360,16 @@ async def run_scan(
         final_report = json.loads(_strip_fences(final_report_raw))
     except (json.JSONDecodeError, TypeError):
         final_report = {"raw": final_report_raw}
+
+    # Update Firestore scan status to completed
+    try:
+        db_client = firestore.Client()
+        db_client.collection("scans").document(scan_id).update({
+            "status": "completed",
+            "report": final_report
+        })
+    except Exception as e:
+        print(f"Failed to update scan status: {e}")
 
     print(f"\n[scan:{scan_id}] Scan complete. {final_report.get('total_bugs', '?')} bugs found.")
     return {"scan_id": scan_id, "report": final_report}

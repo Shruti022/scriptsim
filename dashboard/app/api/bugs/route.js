@@ -11,25 +11,43 @@ if (!getApps().length) {
 const db = getFirestore();
 const storage = new Storage();
 
-export async function GET() {
+export async function GET(request) {
   try {
-    // 1. Find the most recent scan
-    const scansRef = db.collection('scans');
-    const scansSnapshot = await scansRef.orderBy('created_at', 'desc').limit(1).get();
+    const { searchParams } = new URL(request.url);
+    const requestedScanId = searchParams.get('scanId');
     
-    if (scansSnapshot.empty) {
-      return NextResponse.json({ bugs: [] });
+    let latestScanId = requestedScanId;
+    let scanData = null;
+    
+    if (requestedScanId) {
+      const scanDoc = await db.collection('scans').doc(requestedScanId).get();
+      if (!scanDoc.exists) return NextResponse.json({ bugs: [] });
+      scanData = scanDoc.data();
+    } else {
+      // 1. Find the most recent scan if no scanId provided
+      const scansRef = db.collection('scans');
+      const scansSnapshot = await scansRef.orderBy('created_at', 'desc').limit(1).get();
+      
+      if (scansSnapshot.empty) {
+        return NextResponse.json({ bugs: [] });
+      }
+      latestScanId = scansSnapshot.docs[0].id;
+      scanData = scansSnapshot.docs[0].data();
     }
     
-    const latestScanId = scansSnapshot.docs[0].id;
-    
-    // 2. Fetch bugs for that scan
-    const bugsRef = db.collection(`scans/${latestScanId}/bugs`);
-    const bugsSnapshot = await bugsRef.orderBy('severity', 'desc').get();
+    // If the scan is completed and has a final deduplicated report, use those bugs!
+    let rawBugs = [];
+    if (scanData.status === 'completed' && scanData.report && scanData.report.bugs) {
+      rawBugs = scanData.report.bugs;
+    } else {
+      // Otherwise, fallback to the live bugs collection while it's running
+      const bugsRef = db.collection(`scans/${latestScanId}/bugs`);
+      const bugsSnapshot = await bugsRef.orderBy('severity', 'desc').get();
+      rawBugs = bugsSnapshot.docs.map(doc => doc.data());
+    }
     
     const bugs = [];
-    for (const doc of bugsSnapshot.docs) {
-      const bugData = doc.data();
+    for (const bugData of rawBugs) {
       
       // 3. Convert gs:// URI to signed URL
       let signedUrl = null;

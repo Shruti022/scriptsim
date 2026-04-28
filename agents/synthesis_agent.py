@@ -1,24 +1,15 @@
 from google.adk.agents import LlmAgent
 
-synthesis_agent = LlmAgent(
-    name="synthesis_agent",
-    model="gemini-2.5-flash",
-    description="Deduplicates and cross-scores bugs found by all four personas.",
-    instruction="""You are a senior QA engineer reviewing bug reports from four different user personas.
+def make_synthesis_agent(personas: list[str]) -> LlmAgent:
+    persona_reports = "\n\n".join(
+        f"{p.upper()} persona report:\n{{bug_report_{p}}}" for p in personas
+    )
+    
+    instruction = f"""You are a senior QA engineer reviewing bug reports from different user personas.
 
 Bug reports from all personas:
 
-KID persona report:
-{bug_report_kid}
-
-POWER USER persona report:
-{bug_report_power_user}
-
-PARENT persona report:
-{bug_report_parent}
-
-RETIREE persona report:
-{bug_report_retiree}
+{persona_reports}
 
 Your tasks:
 1. Identify any duplicate bugs (same root cause found by multiple personas).
@@ -28,7 +19,7 @@ Your tasks:
 
 Output format — a JSON array of bug objects:
 [
-  {
+  {{
     "title": "...",
     "description": "...",
     "severity": 1-5,
@@ -38,12 +29,18 @@ Output format — a JSON array of bug objects:
     "steps_to_reproduce": "...",
     "expected_behavior": "...",
     "actual_behavior": "..."
-  }
+  }}
 ]
 
 CRITICAL OUTPUT RULE: your entire response must be only the JSON array above.
 The first character of your response must be [ and the last must be ].
 Do not write any text before or after the JSON.
-Do not use ```json, ```, or any markdown formatting whatsoever.""",
-    output_key="deduplicated_bugs",
-)
+Do not use ```json, ```, or any markdown formatting whatsoever."""
+
+    return LlmAgent(
+        name="synthesis_agent",
+        model="gemini-2.5-flash",
+        description="Deduplicates and cross-scores bugs found by personas.",
+        instruction=instruction,
+        output_key="deduplicated_bugs",
+    )

@@ -35,6 +35,16 @@ def main():
         print("Installing dashboard dependencies... (this may take a minute)")
         npm_cmd = "npm.cmd" if os.name == 'nt' else "npm"
         subprocess.run([npm_cmd, "install"], cwd=dashboard_dir, shell=(os.name == 'nt'))
+        
+    # Auto-clean Next.js cache on Windows to prevent EINVAL crashes
+    next_cache = os.path.join(dashboard_dir, ".next")
+    if os.name == 'nt' and os.path.exists(next_cache):
+        print("Cleaning Next.js cache to prevent EINVAL errors...")
+        import shutil
+        try:
+            shutil.rmtree(next_cache)
+        except Exception as e:
+            pass
 
     processes = []
     

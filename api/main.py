@@ -33,14 +33,14 @@ class ScanRequest(BaseModel):
     email: str = "test@scriptsim.com"
     password: str = "TestPass123!"
     personas: list[str] = ["kid", "power_user", "parent", "retiree"]
-    is_smoke_test: bool = False
+    scan_mode: str = "full"
 
 class ScanResponse(BaseModel):
     scan_id: str
     status: str
     message: str
 
-def trigger_scan_task(url: str, email: str, password: str, scan_id: str, personas: list[str], is_smoke_test: bool):
+def trigger_scan_task(url: str, email: str, password: str, scan_id: str, personas: list[str], scan_mode: str):
     """Background task to run the async orchestrator pipeline in a new event loop."""
     try:
         asyncio.run(run_scan(
@@ -49,7 +49,7 @@ def trigger_scan_task(url: str, email: str, password: str, scan_id: str, persona
             login_password=password, 
             scan_id=scan_id,
             personas=personas,
-            is_smoke_test=is_smoke_test
+            scan_mode=scan_mode
         ))
     except Exception as e:
         print(f"Scan {scan_id} failed: {e}")
@@ -69,7 +69,7 @@ async def create_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         request.password, 
         scan_id,
         request.personas,
-        request.is_smoke_test
+        request.scan_mode
     )
     
     return ScanResponse(

@@ -11,24 +11,37 @@ const PERSONA_OPTIONS = [
 export default function Dashboard() {
   const [bugs, setBugs] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [scanStatus, setScanStatus] = useState('');
+  const [activeScanId, setActiveScanId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [url, setUrl] = useState('');
   const [isDemo, setIsDemo] = useState(true);
-  const [isSmokeTest, setIsSmokeTest] = useState(false);
+  const [scanMode, setScanMode] = useState('full'); // 'full', 'smoke', 'fast'
   const [selectedPersonas, setSelectedPersonas] = useState(['kid', 'power_user', 'parent', 'retiree']);
 
   useEffect(() => {
     async function fetchData() {
       try {
+        const query = activeScanId ? `?scanId=${activeScanId}` : '';
         const [bugRes, actRes] = await Promise.all([
-          fetch('/api/bugs'),
-          fetch('/api/activity')
+          fetch(`/api/bugs${query}`),
+          fetch(`/api/activity${query}`)
         ]);
         const bugData = await bugRes.json();
         const actData = await actRes.json();
+        
+        // We must use functional state updates here because useEffect closes over the initial state
+        setScanStatus(prevStatus => {
+          if (actData.scanStatus === 'completed' && prevStatus === 'running') {
+            alert('Scan complete! The dashboard now shows the final deduplicated bug report.');
+          }
+          return actData.scanStatus || '';
+        });
+        
         setBugs(bugData.bugs || []);
         setActivity(actData.activity || []);
+        
       } catch (err) {
         console.error('Failed to fetch data', err);
       } finally {
@@ -38,7 +51,24 @@ export default function Dashboard() {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeScanId]);
+
+  const getEstimatedTime = () => {
+    const count = selectedPersonas.length;
+    // Base time: ~1 min (setup, synthesis, eval)
+    // Parallel persona time: ~0.25 min per action
+    // Sequential reporting time: ~0.25 min per persona
+    
+    let actionTime = 0;
+    if (scanMode === 'fast') actionTime = 0.5; // 2 actions * 0.25
+    else if (scanMode === 'smoke') actionTime = 1.25; // 5 actions * 0.25
+    else actionTime = 1.75; // 7 actions * 0.25
+    
+    const totalMins = 1 + actionTime + (count * 0.25);
+    
+    // Round to nearest half minute for display
+    return `~${Math.ceil(totalMins * 2) / 2} min`;
+  };
 
   const handleTriggerScan = async () => {
     if (!isDemo && !url) {
@@ -51,24 +81,31 @@ export default function Dashboard() {
     }
 
     setIsScanning(true);
+    setBugs([]);
+    setActivity([]);
+    setScanStatus('running');
+    
     const targetUrl = isDemo ? 'http://localhost:5000' : url;
     
     try {
       // Note: In production, this would be a relative path or env variable
-      const res = await fetch('http://localhost:8000/scan', {
+      const res = await fetch('http://127.0.0.1:8000/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: targetUrl,
           personas: selectedPersonas,
-          is_smoke_test: isSmokeTest,
+          scan_mode: scanMode,
         }),
       });
       
       if (res.ok) {
-        const msg = isSmokeTest 
-          ? 'Smoke test started! Skipping mapping and running 1 persona for 5 actions.' 
-          : 'Full scan started! Agents are now browsing the target.';
+        const data = await res.json();
+        setActiveScanId(data.scan_id);
+        
+        let msg = 'Full scan started! Agents are now browsing the target.';
+        if (scanMode === 'fast') msg = `Fast scan started! Running ${selectedPersonas.length} personas for 2 actions each.`;
+        if (scanMode === 'smoke') msg = `Smoke test started! Running ${selectedPersonas.length} personas for 5 actions each.`;
         alert(msg);
       } else {
         const err = await res.json();
@@ -147,30 +184,54 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="input-group" style={{marginTop: '2rem', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px'}}>
-          <div>
-            <label style={{marginBottom: 0}}>Smoke Test Mode</label>
-            <p className="helper-text" style={{color: 'var(--text-secondary)'}}>Skip mapping, 1 persona, 5 turns (Fast & Cheap)</p>
+        <div className="input-group" style={{marginTop: '2rem'}}>
+          <label>Scan Mode</label>
+          <div className="toggle-container" style={{display: 'flex', gap: '1rem', marginTop: '0.5rem'}}>
+            <button 
+              className={`toggle-btn ${scanMode === 'full' ? 'active' : ''}`}
+              onClick={() => setScanMode('full')}
+              style={{flex: 1}}
+            >
+              Full Scan
+            </button>
+            <button 
+              className={`toggle-btn ${scanMode === 'smoke' ? 'active' : ''}`}
+              onClick={() => setScanMode('smoke')}
+              style={{flex: 1}}
+            >
+              Smoke Test
+            </button>
+            <button 
+              className={`toggle-btn ${scanMode === 'fast' ? 'active' : ''}`}
+              onClick={() => setScanMode('fast')}
+              style={{flex: 1}}
+            >
+              Fast Scan
+            </button>
           </div>
-          <input 
-            type="checkbox" 
-            checked={isSmokeTest} 
-            onChange={(e) => setIsSmokeTest(e.target.checked)}
-            style={{width: '24px', height: '24px', cursor: 'pointer', accentColor: 'var(--accent-color)'}}
-          />
+          <p className="helper-text" style={{marginTop: '0.5rem'}}>
+            {scanMode === 'full' && 'Runs full mapper and all selected personas for maximum coverage.'}
+            {scanMode === 'smoke' && 'Skips mapper, runs selected personas for 5 actions each (Standard).'}
+            {scanMode === 'fast' && 'Skips mapper, runs selected personas for 2 actions each (Quick preview).'}
+          </p>
         </div>
 
         <button 
           className={`primary-btn ${isScanning ? 'loading' : ''}`}
           onClick={handleTriggerScan}
           disabled={isScanning}
+          style={{marginTop: '2rem'}}
         >
-          {isScanning ? 'Launching Agents...' : 'Run Parallel Scan'}
+          {isScanning ? 'Launching Agents...' : `Run Scan (${getEstimatedTime()})`}
         </button>
       </section>
 
       <div className="section-header">
-        <h2>Live Activity</h2>
+        <h2 style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+          Live Activity 
+          {scanStatus === 'running' && <span style={{fontSize: '0.9rem', color: 'var(--accent-color)', fontWeight: 'normal'}}>(Running...)</span>}
+          {scanStatus === 'completed' && <span style={{fontSize: '0.9rem', color: '#10b981', fontWeight: 'normal'}}>(Completed)</span>}
+        </h2>
         <span className="count-badge" style={{background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-color)', borderColor: 'var(--accent-color)'}}>
           {activity.length} Events
         </span>

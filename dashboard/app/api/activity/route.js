@@ -8,16 +8,28 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const scansRef = db.collection('scans');
-    const scansSnapshot = await scansRef.orderBy('created_at', 'desc').limit(1).get();
+    const { searchParams } = new URL(request.url);
+    const requestedScanId = searchParams.get('scanId');
     
-    if (scansSnapshot.empty) {
-      return NextResponse.json({ activity: [] });
+    let latestScanId = requestedScanId;
+    let scanData = null;
+    
+    if (requestedScanId) {
+      const scanDoc = await db.collection('scans').doc(requestedScanId).get();
+      if (!scanDoc.exists) return NextResponse.json({ activity: [] });
+      scanData = scanDoc.data();
+    } else {
+      const scansRef = db.collection('scans');
+      const scansSnapshot = await scansRef.orderBy('created_at', 'desc').limit(1).get();
+      
+      if (scansSnapshot.empty) {
+        return NextResponse.json({ activity: [] });
+      }
+      latestScanId = scansSnapshot.docs[0].id;
+      scanData = scansSnapshot.docs[0].data();
     }
-    
-    const latestScanId = scansSnapshot.docs[0].id;
     const activityRef = db.collection(`scans/${latestScanId}/activity`);
     const activitySnapshot = await activityRef.orderBy('timestamp', 'asc').limit(50).get();
     
@@ -34,7 +46,11 @@ export async function GET() {
       };
     });
     
-    return NextResponse.json({ scanId: latestScanId, activity });
+    return NextResponse.json({ 
+      scanId: latestScanId, 
+      scanStatus: scanData.status || 'unknown',
+      activity 
+    });
     
   } catch (error) {
     console.error('Activity API Error:', error);
