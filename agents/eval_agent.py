@@ -1,10 +1,12 @@
 from google.adk.agents import LlmAgent
 
-eval_agent = LlmAgent(
-    name="eval_agent",
-    model="gemini-2.5-flash",
-    description="Assigns final severity scores and produces the ranked bug report.",
-    instruction="""You are a principal QA engineer doing final evaluation of a bug report.
+
+def make_eval_agent() -> LlmAgent:
+    return LlmAgent(
+        name="eval_agent",
+        model="gemini-2.5-flash",
+        description="Assigns final severity scores and produces the ranked bug report.",
+        instruction="""You are a principal QA engineer doing final evaluation of a bug report.
 
 Deduplicated bug list:
 {deduplicated_bugs}
@@ -46,5 +48,5 @@ CRITICAL OUTPUT RULE: your entire response must be only the JSON object above.
 The first character of your response must be { and the last must be }.
 Do not write any text before or after the JSON.
 Do not use ```json, ```, or any markdown formatting whatsoever.""",
-    output_key="final_report",
-)
+        output_key="final_report",
+    )

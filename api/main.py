@@ -30,8 +30,8 @@ app.add_middleware(
 
 class ScanRequest(BaseModel):
     url: str
-    email: str = "test@scriptsim.com"
-    password: str = "TestPass123!"
+    email: str = None
+    password: str = None
     personas: list[str] = ["kid", "power_user", "parent", "retiree"]
     scan_mode: str = "full"
 
