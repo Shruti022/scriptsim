@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import List
 
 
 class BugReport(BaseModel):
@@ -11,3 +12,7 @@ class BugReport(BaseModel):
     expected_behavior: str = Field(description="What should have happened")
     actual_behavior: str = Field(description="What actually happened")
     screenshot_url: str = Field(description="GCS URI gs://... or empty string if no screenshot")
+
+
+class BugReportList(BaseModel):
+    bugs: List[BugReport] = Field(description="All bugs found by this persona. Empty list if none found.")

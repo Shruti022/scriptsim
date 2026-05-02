@@ -1,10 +1,10 @@
 from google.adk.agents import LlmAgent
-from schemas.bug_report import BugReport
+from schemas.bug_report import BugReportList
 
 
 def make_report_agent(persona: str) -> LlmAgent:
     """Create a ReportAgent for the given persona.
-    Agent has output_schema=BugReport and NO tools (ADK constraint)."""
+    Agent has output_schema=BugReportList and NO tools (ADK constraint)."""
     return LlmAgent(
         name=f"report_{persona}",
         model="gemini-2.5-flash",
@@ -16,8 +16,9 @@ Action log from the {persona} persona:
 
 Your task:
 1. Read the action log carefully.
-2. Identify the single MOST IMPORTANT bug described in the log.
-3. Fill out the BugReport schema completely for that bug.
+2. Identify ALL bugs mentioned in the log — do not skip any.
+3. Fill out the BugReportList schema with one BugReport per bug found.
+4. If no bugs were found, return an empty bugs list.
 
 Severity guide:
 - 1 = cosmetic (wrong colour, typo)
@@ -27,8 +28,8 @@ Severity guide:
 - 5 = critical (security vulnerability, crash, payment failure)
 
 Be precise and factual. Do not invent bugs not mentioned in the log.
-The steps_to_reproduce must be actionable numbered steps.""",
-        output_schema=BugReport,
+steps_to_reproduce must be actionable numbered steps.""",
+        output_schema=BugReportList,
         output_key=f"bug_report_{persona}",
         # NO tools — ADK constraint: output_schema and tools are mutually exclusive
     )
