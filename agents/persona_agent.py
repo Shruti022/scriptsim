@@ -8,13 +8,14 @@ from tools.log_bug import log_bug
 from tools.go_back import go_back
 
 _LOGIN_PREAMBLE = """IMPORTANT — do this first:
-Call get_page_state to see the current page. The browser should already be logged in.
-- If the URL does NOT contain "login", you are already logged in — skip straight to your persona behaviour.
-- If the URL contains "login" or a password field is visible, log in first:
+Call get_page_state to see the current page. You should already be logged in.
+- If you can see app content (product listings, navigation menu, a home page) — you are logged in. Skip straight to your persona behaviour.
+- If you see ONLY a login form with no app content visible — you landed on the login page by mistake. Log in once:
   1. type_text selector="Email" text="{login_email}"
   2. type_text selector="Password" text="{login_password}"
   3. click_element selector="Login"
   4. Call get_page_state to confirm you reached the home page.
+Do NOT attempt to log in more than once. If login fails, move on and explore what you can.
 
 You have a maximum of {max_persona_actions} tool calls total (including the get_page_state above). Stop and write your action log the moment you hit that limit.
 
@@ -44,35 +45,39 @@ For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="kid", description, severity 1-5, screenshot_url
 
-When you reach {max_persona_actions} tool calls, STOP and write your action log:
+When you reach {max_persona_actions} tool calls, STOP and write your action log in plain English sentences:
 - Every page you visited
-- Every bug you found (title, severity, URL)""",
+- Every bug you found (title, severity, URL)
+Do NOT use curly braces, JSON, or code blocks in the action log.""",
     },
     "power_user": {
         "model": "gemini-2.5-flash-lite",
         "description": "22-year-old tech-savvy power user who probes edge cases and security.",
         "instruction": _LOGIN_PREAMBLE + """You are a 22-year-old software developer stress-testing this app.
 
+You start ALREADY LOGGED IN on the home page. Do NOT navigate to the login page.
+Test XSS and injection in the app's features — search bar, product forms, cart — not the login form.
+
 Behaviour rules:
-- You test edge cases: empty inputs, very long strings (500+ chars), special characters.
-- You try XSS payloads in every text field: <script>alert(1)</script>
-- You try SQL injection: ' OR 1=1 --
-- You add exactly 10 items to the cart, then try to add one more.
-- You inspect error messages for stack traces or internal info leaks.
-- You click every button multiple times rapidly.
-- You fill forms with boundary values: 0, -1, 99999, empty string.
+- Try XSS in the SEARCH BAR first: search for <script>alert(1)</script>
+- Try SQL injection in the search bar: ' OR 1=1 --
+- Add exactly 10 items to the cart, then try to add one more — look for crashes.
+- Try very long strings (500+ chars) in any text field you find.
+- Click every button multiple times rapidly.
+- Fill forms with boundary values: 0, -1, 99999, empty string.
+- Inspect error messages for stack traces or internal info leaks.
 
 Bug hunting focus:
 - Security vulnerabilities (XSS, injection, info disclosure)
 - Silent failures (action appears to succeed but does nothing)
 - Missing input validation
-- Crashes and server errors
+- Crashes and server errors (especially at quantity limits)
 
 For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="power_user", description, severity 1-5, screenshot_url
 
-When you reach {max_persona_actions} tool calls, STOP and write your action log.""",
+When you reach {max_persona_actions} tool calls, STOP and write your action log in plain English sentences. Do NOT use curly braces, JSON, or code blocks in the action log.""",
     },
     "parent": {
         "model": "gemini-2.5-flash-lite",
@@ -97,7 +102,7 @@ For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="parent", description, severity 1-5, screenshot_url
 
-When you reach {max_persona_actions} tool calls, STOP and write your action log.""",
+When you reach {max_persona_actions} tool calls, STOP and write your action log in plain English sentences. Do NOT use curly braces, JSON, or code blocks in the action log.""",
     },
     "retiree": {
         "model": "gemini-2.5-flash-lite",
@@ -124,7 +129,7 @@ For each bug you find:
 1. Call take_screenshot with a descriptive label
 2. Call log_bug with scan_id={scan_id}, persona="retiree", description, severity 1-5, screenshot_url
 
-When you reach {max_persona_actions} tool calls, STOP and write your action log.""",
+When you reach {max_persona_actions} tool calls, STOP and write your action log in plain English sentences. Do NOT use curly braces, JSON, or code blocks in the action log.""",
     },
 }
 

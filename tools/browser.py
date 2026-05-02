@@ -89,6 +89,11 @@ async def get_page() -> Page:
     return await _ensure_context()
 
 
+def get_default_url() -> str:
+    """Return the scan target URL, used as fallback when go_back() hits about:blank."""
+    return _default_url or ""
+
+
 async def inject_storage_state(state: dict):
     """Store full browser storage state (cookies + localStorage) for persona contexts."""
     global _default_storage_state

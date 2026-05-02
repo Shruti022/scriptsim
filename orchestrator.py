@@ -228,16 +228,16 @@ async def run_scan(
     if scan_mode == "fast":
         personas = [personas[0]] if personas else ["kid"]
         max_mapper_actions = 1
-        max_persona_actions = 10
+        max_persona_actions = 7
         skip_mapper = True
     elif scan_mode == "smoke":
         personas = [personas[0]] if personas else ["kid"]
         max_mapper_actions = 1
-        max_persona_actions = 15
+        max_persona_actions = 10
         skip_mapper = True
     else:
-        max_mapper_actions = 20
-        max_persona_actions = 20
+        max_mapper_actions = 10
+        max_persona_actions = 12
         skip_mapper = True  # mapper loops on this app — skip until fixed
 
     if scan_id is None:
@@ -287,6 +287,9 @@ async def run_scan(
         "personas": personas,
         "max_mapper_actions": max_mapper_actions,
         "max_persona_actions": max_persona_actions,
+        # Pre-populate empty action logs so report agents never crash if a persona fails
+        **{f"action_log_{p}": "No actions recorded." for p in personas},
+        **{f"bug_report_{p}": '{"bugs": []}' for p in personas},
     }
 
     session = await session_service.create_session(
