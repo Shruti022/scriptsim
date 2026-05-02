@@ -1,0 +1,26 @@
+ScriptSim Agent Log
+Scan ID  : 8492163a-763d-4d9a-ae5f-9f6b24bee0bd
+URL      : http://localhost:5000
+Started  : 2026-04-26 23:42:18
+Personas : ['kid']
+============================================================
+
+[scan:8492163a-763d-4d9a-ae5f-9f6b24bee0bd] Starting browser for setup + mapping...
+
+============================================================
+[AGENT START] setup_agent  (23:42:22)
+============================================================
+  [tokens] setup_agent: +245 in / +26 out (running total: 245 in / 26 out)
+[setup_agent] Action: login
+[setup_agent] Agent setup_agent is thinking...
+  [tokens] setup_agent: +405 in / +7 out (running total: 650 in / 33 out)
+[setup_agent] LOGIN_SUCCESS. Cookies saved.
+
+============================================================
+[AGENT START] persona_kid  (23:42:29)
+============================================================
+  [tokens] persona_kid: +1158 in / +5 out (running total: 1158 in / 5 out)
+[persona_kid] Action: get_page_state
+[persona_kid] Agent persona_kid is thinking...
+  [tokens] persona_kid: +1343 in / +30342 out (running total: 2501 in / 30347 out)
+[persona_kid] I'm gonna click on this 'Add to Cart' button! It looks fun! And then this one too! Maybe I can add lots of things to my 
