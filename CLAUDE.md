@@ -14,7 +14,7 @@ thought to test for, and produces a ranked severity report with screenshots.
 - **Infra**: Cloud Run (GCP), Firestore (state + live activity), Cloud Storage (screenshots)
 - **Frontend**: Next.js dashboard (localhost:3000)
 - **API**: FastAPI (localhost:8000)
-- **Demo app**: Flask (localhost:5000)
+- **Demo apps**: Flask — Shop (localhost:5000), TalentHub job board (localhost:5001), MediBook doctor booking (localhost:5002)
 
 ## Architecture (5 phases, sequential)
 1. SetupAgent — logs in, cookies stored globally for all persona contexts
@@ -66,7 +66,7 @@ cannot be pre-authenticated this way — personas must self-login in those cases
 - orchestrator.py
 
 ## Person 3 owns (product + frontend)
-- demo_app/ — Flask app with 5 planted bugs
+- demo_app/ — Flask apps with planted bugs (shop, job board, doctor booking)
 - dashboard/ — Next.js frontend
 - api/ — FastAPI scan trigger endpoints
 
@@ -99,8 +99,12 @@ scriptsim/
 ├── schemas/               ← Person 2 owns this
 │   └── bug_report.py
 ├── demo_app/              ← Person 3 owns this
-│   ├── app.py             ← Flask shop with 5 planted bugs
-│   └── requirements.txt   ← Flask==3.0.3, Werkzeug==3.0.3
+│   ├── app.py             ← Flask shop (port 5000) with 5 planted bugs
+│   ├── requirements.txt   ← Flask==3.0.3, Werkzeug==3.0.3
+│   ├── job_board/
+│   │   └── app.py         ← TalentHub job board (port 5001) with 3 planted bugs
+│   └── doctor_booking/
+│       └── app.py         ← MediBook doctor booking (port 5002) with 3 planted bugs
 ├── dashboard/             ← Person 3 owns this
 │   ├── app/page.js        ← main UI: URL input, persona picker, smoke test toggle
 │   ├── app/api/activity/  ← live activity feed from Firestore
@@ -130,14 +134,32 @@ scriptsim/
 - GCS bucket: scriptsim-screenshots (us-central1, no public access — use gs:// URIs)
 - Cloud Run service: scriptsim-worker (not yet deployed)
 
-## Demo app (runs locally on port 5000)
-- Test credentials: email=test@scriptsim.com, password=TestPass123!
+## Demo apps
+
+### Shop (port 5000) — demo_app/app.py
+- Credentials: test@scriptsim.com / TestPass123!
 - 5 planted bugs:
   1. XSS in search — query rendered with |safe filter
   2. Silent cart failure — Super Gadget returns success but isn't added
   3. Crash at 10+ items — ValueError → 500 error
   4. Confusing error message — "chickens have come home to roost"
   5. Frozen checkout button — permanently disabled
+
+### TalentHub Job Board (port 5001) — demo_app/job_board/app.py
+- Credentials: user@talenthub.com / JobPass123!
+- 10 job listings across Full-time, Part-time, Contract types
+- 3 planted bugs:
+  1. Applications not persisted — apply succeeds but My Applications always empty (session/dict mismatch)
+  2. Sort by salary ignored — sort param received but never applied, order never changes
+  3. Crash on duplicate apply — applying to same job twice raises RuntimeError → 500
+
+### MediBook Doctor Booking (port 5002) — demo_app/doctor_booking/app.py
+- Credentials: patient@medibook.com / HealthPass123! and sam@medibook.com / HealthPass123!
+- 6 doctors across specialties
+- 3 planted bugs:
+  1. Double booking — same slot bookable multiple times, no conflict check
+  2. IDOR on cancel — /cancel/<id> cancels any patient's appointment with no ownership check
+  3. Vague confirmation — success page shows no doctor, date, time, or reference number
 
 ## Local setup (required before running anything)
 1. Install Python deps: `pip install -r requirements.txt`
@@ -205,7 +227,9 @@ Note: `test_agent.py persona` pre-logs in before running the persona. Requires d
 - orchestrator.py — login_url param, multi-site CLI, user message fixed, report sequential, fences fixed
 - eval_agent.py + synthesis_agent.py — stronger anti-fence instructions (first/last char rule)
 - GCS bucket + Firestore — created and tested
-- demo_app/ — Flask shop with 5 planted bugs (Person 3)
+- demo_app/app.py — Flask shop with 5 planted bugs (Person 3)
+- demo_app/job_board/app.py — TalentHub job board with 3 planted bugs (port 5001)
+- demo_app/doctor_booking/app.py — MediBook doctor booking with 3 planted bugs (port 5002)
 - dashboard/ — Next.js UI with live activity console (Person 3)
 - api/ — FastAPI POST /scan endpoint with background task runner (Person 3)
 - start.py — one-command launcher for all 3 services
