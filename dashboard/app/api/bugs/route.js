@@ -28,20 +28,38 @@ export async function GET(request) {
       scanData = scansSnapshot.docs[0].data();
     }
 
+    // Always fetch live bugs from subcollection — these have reliable screenshot URIs
+    // logged directly by log_bug.py, indexed by persona
+    const liveBugsSnap = await db.collection(`scans/${latestScanId}/bugs`).get();
+    const screenshotByPersona = {};
+    liveBugsSnap.docs.forEach(doc => {
+      const d = doc.data();
+      const uri = d.screenshot_gcs_uri || d.screenshot_url || '';
+      if (uri.startsWith('gs://') && d.persona && !screenshotByPersona[d.persona]) {
+        screenshotByPersona[d.persona] = uri;
+      }
+    });
+
     let rawBugs = [];
     if (scanData.status === 'completed' && scanData.report && scanData.report.bugs) {
       rawBugs = scanData.report.bugs;
     } else {
-      const bugsSnapshot = await db.collection(`scans/${latestScanId}/bugs`).orderBy('severity', 'desc').get();
-      rawBugs = bugsSnapshot.docs.map(doc => doc.data());
+      rawBugs = liveBugsSnap.docs.map(doc => doc.data()).sort((a, b) => (b.severity || 0) - (a.severity || 0));
     }
 
     const bugs = rawBugs.map(bugData => {
-      // Proxy gs:// URIs through our own API route — no signing or public bucket needed
-      const uri = bugData.screenshot_gcs_uri || bugData.screenshot_url || '';
+      // Try the URI embedded in the bug first, then fall back to any screenshot
+      // captured by the same persona in the live subcollection
+      let uri = bugData.screenshot_gcs_uri || bugData.screenshot_url || '';
+      if (!uri.startsWith('gs://')) {
+        const personas = bugData.personas_affected || (bugData.persona ? [bugData.persona] : []);
+        for (const p of personas) {
+          if (screenshotByPersona[p]) { uri = screenshotByPersona[p]; break; }
+        }
+      }
       const screenshotUrl = uri.startsWith('gs://')
         ? `/api/screenshot?uri=${encodeURIComponent(uri)}`
-        : uri || null;
+        : null;
       return { ...bugData, signed_screenshot_url: screenshotUrl };
     });
 
