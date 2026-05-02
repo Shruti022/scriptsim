@@ -45,7 +45,15 @@ export async function GET(request) {
       return { ...bugData, signed_screenshot_url: screenshotUrl };
     });
 
-    return NextResponse.json({ scanId: latestScanId, bugs });
+    // Include top-level summary fields when scan is complete (from EvalAgent final report)
+    const summary = (scanData.status === 'completed' && scanData.report) ? {
+      scan_summary: scanData.report.scan_summary || null,
+      total_bugs: scanData.report.total_bugs ?? bugs.length,
+      critical_count: scanData.report.critical_count ?? 0,
+      major_count: scanData.report.major_count ?? 0,
+    } : null;
+
+    return NextResponse.json({ scanId: latestScanId, bugs, summary });
 
   } catch (error) {
     console.error('API Error:', error);

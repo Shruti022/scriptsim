@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [isDemo, setIsDemo] = useState(true);
   const [scanMode, setScanMode] = useState('full'); // 'full', 'smoke', 'fast'
   const [selectedPersonas, setSelectedPersonas] = useState(['kid', 'power_user', 'parent', 'retiree']);
+  const [scanSummary, setScanSummary] = useState(null);
 
   useEffect(() => {
     // Don't fetch anything until a scan has been started
@@ -45,6 +46,7 @@ export default function Dashboard() {
         });
         
         setBugs(bugData.bugs || []);
+        setScanSummary(bugData.summary || null);
         setActivity(actData.activity || []);
         
       } catch (err) {
@@ -89,6 +91,7 @@ export default function Dashboard() {
     setBugs([]);
     setActivity([]);
     setScanStatus('running');
+    setScanSummary(null);
     
     const targetUrl = isDemo ? 'http://localhost:5000' : url;
     
@@ -271,9 +274,31 @@ export default function Dashboard() {
       </div>
 
       <div className="section-header">
-        <h2>Live Reports</h2>
+        <h2>{scanStatus === 'completed' ? 'Final Bug Report' : 'Live Reports'}</h2>
         <span className="count-badge">{bugs.length} Issues Found</span>
       </div>
+
+      {scanStatus === 'completed' && scanSummary && (
+        <div className="card" style={{marginBottom: '1.5rem', borderLeft: '4px solid var(--accent-color)'}}>
+          <div style={{display: 'flex', gap: '2rem', marginBottom: '1rem', flexWrap: 'wrap'}}>
+            <div style={{textAlign: 'center'}}>
+              <div style={{fontSize: '2rem', fontWeight: 'bold'}}>{scanSummary.total_bugs}</div>
+              <div style={{opacity: 0.6, fontSize: '0.85rem'}}>Total Bugs</div>
+            </div>
+            <div style={{textAlign: 'center'}}>
+              <div style={{fontSize: '2rem', fontWeight: 'bold', color: '#ef4444'}}>{scanSummary.critical_count}</div>
+              <div style={{opacity: 0.6, fontSize: '0.85rem'}}>Critical</div>
+            </div>
+            <div style={{textAlign: 'center'}}>
+              <div style={{fontSize: '2rem', fontWeight: 'bold', color: '#f97316'}}>{scanSummary.major_count}</div>
+              <div style={{opacity: 0.6, fontSize: '0.85rem'}}>Major</div>
+            </div>
+          </div>
+          {scanSummary.scan_summary && (
+            <p style={{opacity: 0.8, fontSize: '0.95rem', lineHeight: '1.6'}}>{scanSummary.scan_summary}</p>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="loading-state">
@@ -281,35 +306,55 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="bug-grid">
-          {bugs.map((bug, i) => (
-            <div key={i} className="card bug-card">
-              <div className="bug-header">
-                <span className="persona-tag">{bug.persona} found a bug:</span>
-                <span className={`severity-badge severity-${bug.severity}`}>
-                  Sev {bug.severity}
-                </span>
-              </div>
-              <h3 className="bug-title">{bug.title}</h3>
-              <p className="bug-desc">{bug.description}</p>
-              
-              <div className="bug-meta">
-                <p><strong>Impact:</strong> {bug.expected_behavior ? `Expected ${bug.expected_behavior} but got ${bug.actual_behavior}` : 'UX failure'}</p>
-                <p style={{marginTop: '0.5rem', opacity: 0.7}}><strong>URL:</strong> {bug.url}</p>
-              </div>
-
-              {bug.signed_screenshot_url && (
-                <div className="screenshot-container">
-                  <img 
-                    src={bug.signed_screenshot_url} 
-                    alt="Evidence" 
-                    className="screenshot" 
-                    onClick={() => window.open(bug.signed_screenshot_url, '_blank')}
-                  />
-                  <div className="screenshot-hint">Click to expand screenshot</div>
+          {bugs.map((bug, i) => {
+            const personaLabel = bug.personas_affected?.join(', ') || bug.persona || 'unknown';
+            const title = bug.title || bug.description?.slice(0, 80) || 'Bug found';
+            const severityLabel = bug.severity_label || `Sev ${bug.severity}`;
+            const rank = bug.rank;
+            return (
+              <div key={i} className="card bug-card">
+                <div className="bug-header">
+                  <span className="persona-tag">
+                    {rank ? `#${rank} · ` : ''}{personaLabel}
+                  </span>
+                  <span className={`severity-badge severity-${bug.severity}`}>
+                    {severityLabel}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
+                <h3 className="bug-title">{title}</h3>
+                <p className="bug-desc">{bug.description}</p>
+
+                {bug.steps_to_reproduce && (
+                  <div className="bug-meta" style={{marginTop: '0.75rem'}}>
+                    <p><strong>Steps to reproduce:</strong></p>
+                    <p style={{whiteSpace: 'pre-line', opacity: 0.85, fontSize: '0.9rem'}}>{bug.steps_to_reproduce}</p>
+                  </div>
+                )}
+
+                <div className="bug-meta">
+                  {bug.expected_behavior && (
+                    <p><strong>Expected:</strong> {bug.expected_behavior}</p>
+                  )}
+                  {bug.actual_behavior && (
+                    <p style={{marginTop: '0.25rem'}}><strong>Actual:</strong> {bug.actual_behavior}</p>
+                  )}
+                  <p style={{marginTop: '0.5rem', opacity: 0.7}}><strong>URL:</strong> {bug.url}</p>
+                </div>
+
+                {bug.signed_screenshot_url && (
+                  <div className="screenshot-container">
+                    <img
+                      src={bug.signed_screenshot_url}
+                      alt="Evidence"
+                      className="screenshot"
+                      onClick={() => window.open(bug.signed_screenshot_url, '_blank')}
+                    />
+                    <div className="screenshot-hint">Click to expand screenshot</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {bugs.length === 0 && (
             <div className="empty-state">
               <p>No active bugs reported. Run a scan to deploy agents.</p>
