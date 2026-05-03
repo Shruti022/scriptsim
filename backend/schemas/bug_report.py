@@ -41,10 +41,10 @@ class FinalBug(DeduplicatedBug):
 
 class PersonaMetrics(BaseModel):
     persona: str = Field(description="persona name: kid | power_user | parent | retiree")
-    time_to_success_seconds: int = Field(description="Total time spent by this persona")
+    time_on_task_seconds: int = Field(description="Total time spent by this persona on the task")
     total_actions: int = Field(description="Total number of actions taken")
     friction_score: int = Field(description="1-10 rating of usability struggle", ge=1, le=10)
-    confusion_areas: List[str] = Field(description="List of URLs where the agent looped or stalled")
+    confusion_areas: List[str] = Field(description="Descriptive strings of what went wrong (e.g., 'Retried search button 3 times'). DO NOT include URLs.")
 
 
 class FinalReport(BaseModel):

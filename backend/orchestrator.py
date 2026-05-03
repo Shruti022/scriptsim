@@ -303,6 +303,8 @@ async def run_scan(
 
     await start_browser(target_url)
 
+    # Persona timing stats
+    persona_stats = {} # name -> {start_time, end_time, duration}
     current_agent = None
     async for event in runner.run_async(
         user_id="scanner",
@@ -316,10 +318,22 @@ async def run_scan(
 
         # Switch named browser context when a new agent starts
         if author and author != current_agent:
+            # Mark end of previous agent
+            if current_agent and current_agent.startswith("persona_"):
+                p_name = current_agent[len("persona_"):]
+                if p_name in persona_stats:
+                    persona_stats[p_name]["end_time"] = datetime.now()
+                    duration = (persona_stats[p_name]["end_time"] - persona_stats[p_name]["start_time"]).total_seconds()
+                    persona_stats[p_name]["duration"] = int(duration)
+
             current_agent = author
             _on_agent_start(author)
+            
+            # Start timing for new persona
             if author.startswith("persona_"):
-                set_context_name(author[len("persona_"):])
+                p_name = author[len("persona_"):]
+                persona_stats[p_name] = {"start_time": datetime.now(), "end_time": None, "duration": 0}
+                set_context_name(p_name)
             else:
                 set_context_name("setup")
 
@@ -365,6 +379,15 @@ async def run_scan(
         user_id="scanner",
         session_id=session.id,
     )
+    # Calculate durations for any agents still running
+    for p_name, stats in persona_stats.items():
+        if stats["end_time"] is None:
+            stats["end_time"] = datetime.now()
+            stats["duration"] = int((stats["end_time"] - stats["start_time"]).total_seconds())
+
+    # Add timing stats to session state for EvalAgent to use
+    await updated_session.update(state={"persona_durations": {k: v["duration"] for k, v in persona_stats.items()}})
+
     final_report_raw = updated_session.state.get("final_report", {})
 
     if isinstance(final_report_raw, dict):

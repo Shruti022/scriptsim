@@ -347,8 +347,8 @@ export default function Dashboard() {
                 
                 <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
                   <div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase' }}>Time to Success</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{m.time_to_success_seconds}s</div>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase' }}>Time on Task</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{(m.time_on_task_seconds || m.time_to_success_seconds || 0)}s</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase' }}>Total Actions</div>

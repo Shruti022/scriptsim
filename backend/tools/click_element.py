@@ -13,15 +13,13 @@ async def click_element(selector: str) -> str:
         page = await get_page()
         url_before = page.url
         
-        # Comprehensive selector strategy:
-        # 1. Exact/partial text match on buttons, links, or inputs
-        # 2. Aria-label match
-        # 3. Role-based text match
-        # 4. Title attribute
+        # Comprehensive CSS-compliant selector strategy:
+        # We use :has-text or :text-is for robustness across buttons and links.
         selector_query = (
             f"button:has-text('{selector}'), "
             f"a:has-text('{selector}'), "
-            f"text='{selector}', "
+            f"button:text-is('{selector}'), "
+            f"a:text-is('{selector}'), "
             f"[aria-label*='{selector}' i], "
             f"[title*='{selector}' i], "
             f"[role='button']:has-text('{selector}'), "
