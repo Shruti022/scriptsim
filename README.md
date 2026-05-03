@@ -13,7 +13,34 @@ ScriptSim is a state-of-the-art automated QA testing platform that deploys multi
 - **📸 Evidence Capture**: Automated screenshots captured for every discovered issue, stored in Google Cloud Storage.
 - **📊 Live Activity Stream**: Real-time logging of agent thoughts, actions, and discoveries as they happen.
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
+
+ScriptSim operates as a multi-phase agentic pipeline orchestrated by the **Google ADK**. The architecture is designed to transition from broad structural discovery to deep, persona-driven exploitation.
+
+### The 5-Phase Pipeline:
+1.  **Phase 1: Setup**: Authenticates the session, handles login redirects, and captures persistent storage state (cookies/localStorage).
+2.  **Phase 2: Discovery (Mapper)**: A broad-crawler that identifies every clickable element, form, and navigation path to build a structured DOM map.
+3.  **Phase 3: Simulation (Parallel Personas)**: Multiple agents with distinct psychological profiles explore the app simultaneously using the discovered map.
+4.  **Phase 4: Extraction (Report Agents)**: Structured parsers that convert raw action logs into formal Pydantic bug models.
+5.  **Phase 5: Evaluation (Senior QA)**: A final high-level agent that deduplicates findings, calculates cross-persona severity boosts, and ranks the report.
+
+## 🧠 Key Design Decisions
+
+-   **Agentic Personas**: Instead of brittle scripts, we use LLM-based personas. This allows the system to find "logical" bugs (e.g., a power user trying to skip a payment step) that traditional tools would miss.
+-   **Stateless Frontend / Stateful Backend**: The Next.js dashboard is a "thin" observer. The true state lives in **Firebase Firestore**, allowing the dashboard to be purely reactive to backend events.
+-   **Isolated Browser Contexts**: Each persona runs in a unique, isolated Playwright context. This prevents session interference and allows for accurate simulation of multiple users interacting with the system at once.
+-   **Schema-First Reporting**: Every bug is validated against a Pydantic schema before it reaches the database. This ensures the dashboard always has the required fields (title, steps, severity) without UI crashes.
+
+## 🧪 Testing & Quality Assurance
+
+We use a layered testing approach to ensure ScriptSim remains stable during rapid development:
+
+-   **Import Integrity**: `scripts/test_imports.py` verifies that the backend restructuring hasn't broken internal module resolutions.
+-   **Storage Verification**: `scripts/verify_screenshot.py` checks that GCS buckets are writable and that the dashboard proxy can correctly serve images with the right headers.
+-   **Agent Validation**: Individual agent logic can be tested using `scripts/test_agent.py` to ensure prompts and schemas are behaving as expected.
+-   **App Integration**: We run "Smoke Tests" against our internal `apps/` library (Shop, Jobs, Health) to verify the agents' ability to navigate different DOM structures.
+
+## 🏗️ Architecture Diagram
 
 ```mermaid
 graph TD
