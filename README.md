@@ -1,46 +1,40 @@
-# 🚀 ScriptSim: AI-Powered Parallel QA Testing
+# 🚀 ScriptSim: AI-Powered Behavioral Accessibility Testing
 
-ScriptSim is a state-of-the-art automated QA testing platform that deploys multiple AI-driven "User Personas" to explore, test, and find bugs in web applications simultaneously. By simulating real-world user behaviors—from confused children to technical power users—ScriptSim provides comprehensive coverage that traditional automated tests often miss.
+ScriptSim is an AI-driven accessibility and usability testing platform that leverages multiple autonomous user agents to simulate diverse real-world user behaviors. Instead of relying on static rules or scripted test cases, ScriptSim models how different types of users—such as elderly individuals, children, or cautious users—interact with web applications to uncover accessibility gaps, usability breakdowns, and real-world interaction failures.
+
+Traditional accessibility tools primarily focus on surface-level compliance checks (e.g., missing labels or contrast issues). In contrast, ScriptSim goes a step further by identifying **behavioral accessibility issues**—situations where users struggle to navigate, understand, or safely interact with a system despite it being technically compliant.
 
 ## ✨ Key Features
 
-- **🎭 Multi-Persona Testing**: Deploy agents like the "8-Year-Old" (random clicking), "Power User" (technical stress testing), and "Anxious Parent" (privacy/security focus).
-- **⚡ Parallel Execution**: Run multiple testing sessions concurrently to slash QA time.
-- **🗺️ Automated Site Mapping**: Phase-based approach that first crawls your application to build a comprehensive feature map.
-- **📑 Structured Bug Reporting**: Automatically deduplicated, scored, and ranked bug reports powered by Gemini 2.5 Flash.
-- **📸 Evidence Capture**: Automated screenshots captured for every discovered issue, stored in Google Cloud Storage.
-- **📊 Live Activity Stream**: Real-time logging of agent thoughts, actions, and discoveries as they happen.
+- **🎭 Autonomous User Personas**: Simulate interactions from users with diverse needs, including elderly individuals (simplified navigation), children (high cognitive load), and power users (technical stress).
+- **🧠 Behavioral Insight**: Detect issues related to cognitive load, navigation clarity, and readability that static scanners miss.
+- **⚡ Parallel Simulation**: Deploy multiple agents simultaneously to explore diverse user journeys in a fraction of the time.
+- **📑 Structured ranked reports**: Get actionable insights with deduplicated, scored, and ranked bug reports powered by Gemini 2.5 Flash.
+- **📸 Evidence Capture**: Automated screenshots captured for every usability breakdown, providing clear visual context for developers.
+- **📊 Live Activity Stream**: Real-time logging of agent reasoning and interaction failures as they occur.
 
 ## 🏗️ System Architecture
 
-ScriptSim operates as a multi-phase agentic pipeline orchestrated by the **Google ADK**. The architecture is designed to transition from broad structural discovery to deep, persona-driven exploitation.
+ScriptSim operates as a multi-phase agentic pipeline orchestrated by the **Google ADK**. The architecture is designed to transition from broad structural discovery to deep, persona-driven exploitation of usability gaps.
 
 ### The 5-Phase Pipeline:
-1.  **Phase 1: Setup**: Authenticates the session, handles login redirects, and captures persistent storage state (cookies/localStorage).
-2.  **Phase 2: Discovery (Mapper)**: A broad-crawler that identifies every clickable element, form, and navigation path to build a structured DOM map.
-3.  **Phase 3: Simulation (Parallel Personas)**: Multiple agents with distinct psychological profiles explore the app simultaneously using the discovered map.
-4.  **Phase 4: Extraction (Report Agents)**: Structured parsers that convert raw action logs into formal Pydantic bug models.
-5.  **Phase 5: Evaluation (Senior QA)**: A final high-level agent that deduplicates findings, calculates cross-persona severity boosts, and ranks the report.
+1.  **Phase 1: Setup**: Authenticates the session and captures persistent storage state to ensure a consistent user environment.
+2.  **Phase 2: Discovery (Mapper)**: Crawls the application to identify navigation paths and UI components, building a "Usability Map."
+3.  **Phase 3: Simulation (Parallel Personas)**: Multiple agents explore the app simultaneously using the map to test different accessibility scenarios.
+4.  **Phase 4: Extraction (Report Agents)**: Structured parsers that convert raw interaction logs into formal usability bug models.
+5.  **Phase 5: Evaluation (Senior QA)**: A final agent that deduplicates findings and ranks them based on impact to inclusive design standards.
 
 ## 🧠 Key Design Decisions
 
--   **Agentic Personas**: Instead of brittle scripts, we use LLM-based personas. This allows the system to find "logical" bugs (e.g., a power user trying to skip a payment step) that traditional tools would miss.
--   **Stateless Frontend / Stateful Backend**: The Next.js dashboard is a "thin" observer. The true state lives in **Firebase Firestore**, allowing the dashboard to be purely reactive to backend events.
--   **Isolated Browser Contexts**: Each persona runs in a unique, isolated Playwright context. This prevents session interference and allows for accurate simulation of multiple users interacting with the system at once.
--   **Schema-First Reporting**: Every bug is validated against a Pydantic schema before it reaches the database. This ensures the dashboard always has the required fields (title, steps, severity) without UI crashes.
-
-## 🧪 Testing & Quality Assurance
-
-We use a layered testing approach to ensure ScriptSim remains stable during rapid development:
-
--   **Agent Validation**: Individual agent logic can be tested using `scripts/test_agent.py` to ensure prompts and schemas are behaving as expected.
--   **App Integration**: We run "Smoke Tests" against our internal `apps/` library (Shop, Jobs, Health) to verify the agents' ability to navigate different DOM structures.
+-   **Inclusive Design Focus**: We prioritize agents that test "User Friction" rather than just code errors. If an agent with "High Cognitive Load" gets stuck, it's a bug—even if the code is technically correct.
+-   **Stateless Frontend / Stateful Backend**: The Next.js dashboard is a reactive observer. The core state lives in **Firebase Firestore**, ensuring real-time activity updates for distributed teams.
+-   **Schema-First Reporting**: Every usability gap is validated against a Pydantic schema, ensuring developers get standardized data (affected persona, severity, steps to reproduce).
 
 ## 🏗️ Architecture Diagram
 
 ```mermaid
 graph TD
-    User((User)) -->|Configures Scan| Dashboard[Next.js Dashboard]
+    User((Product Team)) -->|Configures Scan| Dashboard[Next.js Dashboard]
     Dashboard -->|POST /scan| API[FastAPI Backend]
     API -->|Starts| Orchestrator[Python Orchestrator]
     
@@ -52,13 +46,22 @@ graph TD
         Report --> Synthesis[Synthesis & Eval Agent]
     end
     
-    Parallel -->|Controls| Browser[Playwright Browser]
-    Browser -->|Tests| TargetApp[Target Application]
+    Parallel -->|Simulates User| Browser[Playwright Browser]
+    Browser -->|Interacts With| TargetApp[Target Application]
     
-    Parallel -->|Uploads| GCS[Google Cloud Storage]
-    Orchestrator -->|Logs| Firestore[Firebase Firestore]
-    Dashboard -->|Reads| Firestore
+    Parallel -->|Uploads Evidence| GCS[Google Cloud Storage]
+    Orchestrator -->|Logs Events| Firestore[Firebase Firestore]
+    Dashboard -->|Reads State| Firestore
 ```
+
+## 🧪 Testing Personas (Inclusive Suite)
+
+| Persona | Behavioral Profile | Accessibility Focus |
+| :--- | :--- | :--- |
+| **👓 Elderly User** | Simplified, cautious | Focuses on high-contrast, large targets, and clear confirmation messages. |
+| **👶 Young Child** | Impulsive, random | Tests for cognitive overload, distracting UI, and unintended navigation. |
+| **🛡️ Cautious User** | High anxiety | Scrutinizes privacy links, terms of service, and security indicators. |
+| **💻 Power User** | Efficient, technical | Tests the limits of "Expert Mode" features and keyboard accessibility. |
 
 ## 📂 Project Structure
 
@@ -71,74 +74,17 @@ scriptsim/
 │   ├── tools/          # Playwright browser tools
 │   └── orchestrator.py # Pipeline execution logic
 ├── frontend/           # Next.js Dashboard
-├── apps/               # Target Demo Applications
-│   ├── shop/           # E-commerce template (Port 5000)
-│   ├── job_board/      # Talent platform (Port 5001)
-│   └── doctor_booking/ # Healthcare platform (Port 5002)
+├── apps/               # Target Demo Applications (Shop, Jobs, Healthcare)
 ├── docs/               # Documentation & Guides
 ├── scripts/            # Utility & Maintenance scripts
 └── start.py            # Unified service orchestrator
 ```
 
-## 🛠️ Tech Stack
-
-- **Backend**: Python, Google ADK (Agent Development Kit), FastAPI, Playwright
-- **AI**: Gemini 2.5 Flash, Vertex AI
-- **Database/Storage**: Firebase Firestore, Google Cloud Storage
-- **Frontend**: Next.js 14, TailwindCSS (vibrant glassmorphism design)
-- **Infrastructure**: Concurrent subprocess management for multi-app deployment
-
 ## 🚀 Getting Started
 
-### Prerequisites
+1. **Clone the repo**: `git clone https://github.com/Shruti022/scriptsim.git`
+2. **Environment**: Create `.env` with `GOOGLE_CLOUD_PROJECT` and `SCREENSHOT_BUCKET`.
+3. **Run**: `python start.py`
 
-- Python 3.10+
-- Node.js 18+
-- Google Cloud Project with Vertex AI enabled
-- Firebase project for Firestore
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Shruti022/scriptsim.git
-   cd scriptsim
-   ```
-
-2. **Configure Environment**:
-   Create a `.env` file in the root directory:
-   ```env
-   GOOGLE_CLOUD_PROJECT=your-project-id
-   GOOGLE_CLOUD_LOCATION=us-central1
-   SCREENSHOT_BUCKET=your-screenshots-bucket
-   ```
-
-3. **Install Dependencies**:
-   The `start.py` script handles most installations, but you can manually install if needed:
-   ```bash
-   pip install -r backend/api/requirements.txt
-   cd frontend && npm install && cd ..
-   ```
-
-### Running the Platform
-
-Use the unified startup script to launch the dashboard, API, and all demo apps:
-
-```bash
-python start.py
-```
-
-- **Dashboard**: `http://localhost:3000`
-- **Shop App**: `http://localhost:5000`
-- **Job Board**: `http://localhost:5001`
-- **Doctor Booking**: `http://localhost:5002`
-
-## 🧪 Testing Personas
-
-| Persona | Behavior | Strategy |
-| :--- | :--- | :--- |
-| **👶 8-Year-Old** | Random, curious | Clicks everything, gets stuck, finds UI dead-ends. |
-| **💻 Power User** | Fast, technical | Uses shortcuts, inspects forms, tries to bypass logic. |
-| **🛡️ Anxious Parent** | Skeptical, slow | Focuses on privacy links, terms, and safety banners. |
-| **👓 Retiree** | Simplified | Looks for high contrast, large buttons, and clear FAQs. |
-
+---
+Built for product teams who believe that **compliant** isn't the same as **inclusive**.
