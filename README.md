@@ -35,8 +35,6 @@ ScriptSim operates as a multi-phase agentic pipeline orchestrated by the **Googl
 
 We use a layered testing approach to ensure ScriptSim remains stable during rapid development:
 
--   **Import Integrity**: `scripts/test_imports.py` verifies that the backend restructuring hasn't broken internal module resolutions.
--   **Storage Verification**: `scripts/verify_screenshot.py` checks that GCS buckets are writable and that the dashboard proxy can correctly serve images with the right headers.
 -   **Agent Validation**: Individual agent logic can be tested using `scripts/test_agent.py` to ensure prompts and schemas are behaving as expected.
 -   **App Integration**: We run "Smoke Tests" against our internal `apps/` library (Shop, Jobs, Health) to verify the agents' ability to navigate different DOM structures.
 
