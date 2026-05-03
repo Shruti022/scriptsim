@@ -2,8 +2,6 @@
 
 ScriptSim is a state-of-the-art automated QA testing platform that deploys multiple AI-driven "User Personas" to explore, test, and find bugs in web applications simultaneously. By simulating real-world user behaviors—from confused children to technical power users—ScriptSim provides comprehensive coverage that traditional automated tests often miss.
 
-![Dashboard Preview](https://via.placeholder.com/1200x600/1a1a2e/ffffff?text=ScriptSim+Dashboard+Interface)
-
 ## ✨ Key Features
 
 - **🎭 Multi-Persona Testing**: Deploy agents like the "8-Year-Old" (random clicking), "Power User" (technical stress testing), and "Anxious Parent" (privacy/security focus).
@@ -144,13 +142,3 @@ python start.py
 | **🛡️ Anxious Parent** | Skeptical, slow | Focuses on privacy links, terms, and safety banners. |
 | **👓 Retiree** | Simplified | Looks for high contrast, large buttons, and clear FAQs. |
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-Built with ❤️ for the future of Automated QA.
