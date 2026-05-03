@@ -312,6 +312,81 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Behavioral Analytics Section */}
+      {scanStatus === 'completed' && scanSummary && scanSummary.metrics && (
+        <section className="metrics-dashboard" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+          <div className="section-header">
+            <h2>🧠 Behavioral Analytics</h2>
+            <span className="count-badge" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', borderColor: '#a78bfa' }}>Inclusion Metrics</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+            {scanSummary.metrics.map(m => (
+              <div key={m.persona} className="card" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>{PERSONA_OPTIONS.find(p => p.id === m.persona)?.icon}</span>
+                    <span style={{ fontWeight: '600' }}>{PERSONA_OPTIONS.find(p => p.id === m.persona)?.label}</span>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '4px', background: m.friction_score > 7 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: m.friction_score > 7 ? '#ef4444' : '#10b981', border: '1px solid currentColor' }}>
+                    Friction: {m.friction_score}/10
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase' }}>Time to Success</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{m.time_to_success_seconds}s</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase' }}>Total Actions</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{m.total_actions}</div>
+                  </div>
+                </div>
+
+                {m.confusion_areas && m.confusion_areas.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '600', marginBottom: '0.5rem', color: '#f59e0b' }}>⚠️ Confusion Areas</div>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                      {m.confusion_areas.map((area, i) => (
+                        <li key={i} style={{ fontSize: '0.8rem', opacity: 0.8, marginBottom: '0.25rem', paddingLeft: '1rem', borderLeft: '2px solid rgba(245, 158, 11, 0.3)' }}>
+                          {area}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Friction Score Guide & Improvement Tips */}
+          <div className="card" style={{ marginTop: '2rem', background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--accent-color)', marginBottom: '1rem' }}>🧩 Understanding Friction</h4>
+                <p style={{ fontSize: '0.85rem', opacity: 0.8, lineHeight: '1.5' }}>
+                  Friction measures the <strong>cognitive load</strong> required to use your app. A high score (7-10) means agents encountered:
+                </p>
+                <ul style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '0.5rem', paddingLeft: '1.2rem' }}>
+                  <li><strong>Cognitive Loops</strong>: Clicking the same element repeatedly without progress.</li>
+                  <li><strong>Navigational Regret</strong>: Immediate backtracking after landing on a confusing page.</li>
+                  <li><strong>Selector Failure</strong>: Agents couldn't find fields despite them being visually present.</li>
+                </ul>
+              </div>
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#10b981', marginBottom: '1rem' }}>🚀 How to Improve Your Score</h4>
+                <ul style={{ fontSize: '0.85rem', opacity: 0.8, paddingLeft: '1.2rem', lineHeight: '1.6' }}>
+                  <li><strong>Explicit Labeling</strong>: Use <code>&lt;label for="..."&gt;</code> to link text to inputs. This reduces "Selector Friction" significantly.</li>
+                  <li><strong>ARIA Landmarks</strong>: Use <code>aria-label</code> on icons and buttons that don't have visible text.</li>
+                  <li><strong>Simplify Navigation</strong>: Reduce the number of steps required for core tasks (e.g., checkout or login).</li>
+                  <li><strong>Persistent State</strong>: Ensure forms don't clear their data on validation errors.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <div className="section-header">
         <h2>{scanStatus === 'completed' ? 'Final Bug Report' : 'Live Reports'}</h2>
         <span className="count-badge">{bugs.length} Issues Found</span>
