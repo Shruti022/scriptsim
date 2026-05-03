@@ -69,6 +69,7 @@ export async function GET(request) {
       total_bugs: scanData.report.total_bugs ?? bugs.length,
       critical_count: scanData.report.critical_count ?? 0,
       major_count: scanData.report.major_count ?? 0,
+      metrics: scanData.report.metrics || [],
     } : null;
 
     return NextResponse.json({ scanId: latestScanId, bugs, summary });

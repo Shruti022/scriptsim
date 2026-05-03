@@ -13,32 +13,37 @@ async def click_element(selector: str) -> str:
         page = await get_page()
         url_before = page.url
         
-        # Try 1: Exact or partial text match (Playwright's 'text=' is smart)
+        # Comprehensive selector strategy:
+        # 1. Exact/partial text match on buttons, links, or inputs
+        # 2. Aria-label match
+        # 3. Role-based text match
+        # 4. Title attribute
+        selector_query = (
+            f"button:has-text('{selector}'), "
+            f"a:has-text('{selector}'), "
+            f"text='{selector}', "
+            f"[aria-label*='{selector}' i], "
+            f"[title*='{selector}' i], "
+            f"[role='button']:has-text('{selector}'), "
+            f"input[type='submit'][value*='{selector}' i], "
+            f"input[type='button'][value*='{selector}' i]"
+        )
+        
+        locator = page.locator(selector_query).first
+        await locator.scroll_into_view_if_needed()
+        await locator.click(timeout=5000)
+        
+        # Wait for potential navigation
         try:
-            await page.click(f"text={selector}", timeout=3000)
-        except Exception:
-            # Try 2: Case-insensitive 'has-text' which is more flexible for partials
-            await page.wait_for_load_state("load", timeout=3000)
+            await page.wait_for_load_state("networkidle", timeout=3000)
+        except:
+            pass
 
-        await page.wait_for_load_state("networkidle", timeout=5000)
         return json.dumps({
             "success": True,
             "url_changed": page.url != url_before,
             "new_url": page.url,
         })
-    except Exception:
-        try:
-            page = await get_page()
-            url_before = page.url
-            # Try 3: Aria-label match (escape single quotes)
-            escaped = selector.replace("'", "\\'")
-            await page.click(f"[aria-label*='{escaped}' i]", timeout=3000)
-            await page.wait_for_load_state("load", timeout=3000)
-            return json.dumps({
-                "success": True,
-                "url_changed": page.url != url_before,
-                "new_url": page.url,
-            })
-        except Exception as e:
-            return json.dumps({"success": False, "error": str(e)})
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
 

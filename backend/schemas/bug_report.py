@@ -39,9 +39,18 @@ class FinalBug(DeduplicatedBug):
     severity_label: str = Field(description="CRITICAL | MAJOR | MODERATE | MINOR | COSMETIC")
 
 
+class PersonaMetrics(BaseModel):
+    persona: str = Field(description="persona name: kid | power_user | parent | retiree")
+    time_to_success_seconds: int = Field(description="Total time spent by this persona")
+    total_actions: int = Field(description="Total number of actions taken")
+    friction_score: int = Field(description="1-10 rating of usability struggle", ge=1, le=10)
+    confusion_areas: List[str] = Field(description="List of URLs where the agent looped or stalled")
+
+
 class FinalReport(BaseModel):
     scan_summary: str = Field(description="One paragraph summary of overall product quality")
     total_bugs: int = Field(description="Total number of unique bugs found")
     critical_count: int = Field(description="Number of critical bugs (severity 5)")
     major_count: int = Field(description="Number of major bugs (severity 4)")
     bugs: List[FinalBug] = Field(description="Ranked list of bugs")
+    metrics: List[PersonaMetrics] = Field(default_factory=list, description="Performance metrics per persona")
