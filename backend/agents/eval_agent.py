@@ -1,4 +1,5 @@
 from google.adk.agents import LlmAgent
+from schemas.bug_report import FinalReport
 
 
 def make_eval_agent() -> LlmAgent:
@@ -21,32 +22,8 @@ Your tasks:
 
 2. Sort bugs from highest severity to lowest.
 
-3. Output the final ranked report as a JSON object:
-{
-  "scan_summary": "One paragraph summary of the overall product quality",
-  "total_bugs": <number>,
-  "critical_count": <number>,
-  "major_count": <number>,
-  "bugs": [
-    {
-      "rank": 1,
-      "title": "...",
-      "severity": 5,
-      "severity_label": "CRITICAL",
-      "url": "...",
-      "personas_affected": ["kid", "power_user"],
-      "description": "...",
-      "steps_to_reproduce": "...",
-      "expected_behavior": "...",
-      "actual_behavior": "...",
-      "screenshot_url": "..."
-    }
-  ]
-}
-
-CRITICAL OUTPUT RULE: your entire response must be only the JSON object above.
-The first character of your response must be { and the last must be }.
-Do not write any text before or after the JSON.
-Do not use ```json, ```, or any markdown formatting whatsoever.""",
+3. Fill out the FinalReport schema with the final ranked report.
+Ensure each bug has a concise 'title' and a full 'description'.""",
+        output_schema=FinalReport,
         output_key="final_report",
     )

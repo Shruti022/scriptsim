@@ -20,6 +20,11 @@ Your task:
 3. Fill out the BugReportList schema with one BugReport per bug found.
 4. If no bugs were found, return an empty bugs list.
 
+Title & Description Rule:
+- The "title" MUST be a short, distinct summary (max 80 chars).
+- The "description" MUST contain the full details.
+- DO NOT use the same text for both.
+
 Severity guide:
 - 1 = cosmetic (wrong colour, typo)
 - 2 = minor (confusing but workable)

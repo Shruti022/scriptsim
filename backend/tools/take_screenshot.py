@@ -20,13 +20,20 @@ async def take_screenshot(label: str = "") -> str:
         filename = f"{safe_label}_{timestamp}.png" if safe_label else f"screenshot_{timestamp}.png"
         local_path = os.path.join(tempfile.gettempdir(), filename)
 
+        print(f"[take_screenshot] Capturing to {local_path}...")
+        try:
+            await page.wait_for_load_state("networkidle", timeout=5000)
+        except Exception:
+            pass # Continue if idle takes too long
+        
         await page.screenshot(path=local_path, full_page=False)
 
         from google.cloud import storage
         client = storage.Client()
         bucket = client.bucket("scriptsim-screenshots")
         blob = bucket.blob(filename)
-        blob.upload_from_filename(local_path)
+        blob.upload_from_filename(local_path, content_type="image/png")
+        print(f"[take_screenshot] Upload complete: {filename} to scriptsim-screenshots")
 
         gcs_url = f"gs://scriptsim-screenshots/{filename}"
         return json.dumps({"success": True, "url": gcs_url, "local_path": local_path})

@@ -1,4 +1,5 @@
 from google.adk.agents import LlmAgent
+from schemas.bug_report import DeduplicatedBugList
 
 def make_synthesis_agent(personas: list[str]) -> LlmAgent:
     persona_reports = "\n\n".join(
@@ -18,30 +19,17 @@ Your tasks:
 3. Cross-persona severity boost: if 2+ personas hit the same bug, raise severity by 1 (max 5).
 4. Produce a deduplicated list of ALL unique bugs with their final severity scores.
 
-Output format — a JSON array of bug objects:
-[
-  {{
-    "title": "...",
-    "description": "...",
-    "severity": 1-5,
-    "url": "...",
-    "personas_affected": ["kid", "parent"],
-    "screenshot_url": "...",
-    "steps_to_reproduce": "...",
-    "expected_behavior": "...",
-    "actual_behavior": "..."
-  }}
-]
+Title & Description Rule:
+- The "title" MUST be a short, punchy summary of the bug (max 80 chars). DO NOT copy the description here.
+- The "description" MUST be a full detailed impact and context.
 
-CRITICAL OUTPUT RULE: your entire response must be only the JSON array above.
-The first character of your response must be [ and the last must be ].
-Do not write any text before or after the JSON.
-Do not use ```json, ```, or any markdown formatting whatsoever."""
+Fill out the DeduplicatedBugList schema with the final merged bugs."""
 
     return LlmAgent(
         name="synthesis_agent",
         model="gemini-2.5-flash",
         description="Deduplicates and cross-scores bugs found by personas.",
         instruction=instruction,
+        output_schema=DeduplicatedBugList,
         output_key="deduplicated_bugs",
     )

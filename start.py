@@ -23,7 +23,7 @@ def main():
     print("=== Starting ScriptSim Services ===")
     
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    dashboard_dir = os.path.join(root_dir, "dashboard")
+    dashboard_dir = os.path.join(root_dir, "frontend")
     
     # Add Node.js to PATH to ensure npm is found
     node_path = r"C:\Program Files\nodejs"
@@ -49,24 +49,40 @@ def main():
     processes = []
     
     try:
-        # 1. Start Demo App
-        demo_app = start_process(
+        # 1. Start Demo App (Shop)
+        shop_app = start_process(
             [sys.executable, "app.py"], 
-            cwd=os.path.join(root_dir, "demo_app"),
-            prefix="DemoApp"
+            cwd=os.path.join(root_dir, "apps", "shop"),
+            prefix="ShopApp"
         )
-        processes.append(demo_app)
+        processes.append(shop_app)
+
+        # 2. Start Job Board App
+        job_app = start_process(
+            [sys.executable, "app.py"],
+            cwd=os.path.join(root_dir, "apps", "job_board"),
+            prefix="JobApp"
+        )
+        processes.append(job_app)
+
+        # 3. Start Doctor Booking App
+        doctor_app = start_process(
+            [sys.executable, "app.py"],
+            cwd=os.path.join(root_dir, "apps", "doctor_booking"),
+            prefix="DocApp"
+        )
+        processes.append(doctor_app)
         
-        # 2. Start API
-        # Run uvicorn as a module from the root directory to ensure imports work perfectly
+        # 4. Start API
+        # Run uvicorn as a module from the backend directory
         api = start_process(
             [sys.executable, "-m", "uvicorn", "api.main:app", "--port", "8000"],
-            cwd=root_dir,
+            cwd=os.path.join(root_dir, "backend"),
             prefix="API"
         )
         processes.append(api)
         
-        # 3. Start Dashboard
+        # 5. Start Dashboard
         dashboard = start_process(
             ["npm", "run", "dev"],
             cwd=dashboard_dir,
@@ -76,9 +92,11 @@ def main():
 
         print("\n==============================================")
         print("All services are starting up!")
-        print(" - Demo App:  http://localhost:5000")
-        print(" - Dashboard: http://localhost:3000")
-        print(" - API:       http://localhost:8000")
+        print(" - Shop App:       http://localhost:5000")
+        print(" - Job Board:      http://localhost:5001")
+        print(" - Doctor Booking: http://localhost:5002")
+        print(" - Dashboard:      http://localhost:3000")
+        print(" - API:            http://localhost:8000")
         print("==============================================")
         print("Press Ctrl+C to stop all services.\n")
         

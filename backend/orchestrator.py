@@ -163,8 +163,10 @@ def _on_tokens(agent_name: str, in_tok: int, out_tok: int):
     _log(f"  [tokens] {agent_name}: +{in_tok} in / +{out_tok} out (running total: {running_in} in / {running_out} out)")
 
 
-def _strip_fences(text: str) -> str:
+def _strip_fences(text: any) -> str:
     """Remove ```json ... ``` or ``` ... ``` wrappers that LLMs sometimes add."""
+    if not isinstance(text, str):
+        return text
     text = text.strip()
     if text.startswith("```"):
         text = text[text.index("\n") + 1:] if "\n" in text else text[3:]
@@ -363,12 +365,15 @@ async def run_scan(
         user_id="scanner",
         session_id=session.id,
     )
-    final_report_raw = updated_session.state.get("final_report", "{}")
+    final_report_raw = updated_session.state.get("final_report", {})
 
-    try:
-        final_report = json.loads(_strip_fences(final_report_raw))
-    except (json.JSONDecodeError, TypeError):
-        final_report = {"raw": final_report_raw}
+    if isinstance(final_report_raw, dict):
+        final_report = final_report_raw
+    else:
+        try:
+            final_report = json.loads(_strip_fences(final_report_raw))
+        except (json.JSONDecodeError, TypeError):
+            final_report = {"raw": str(final_report_raw)}
 
     try:
         db_client = firestore.Client()
