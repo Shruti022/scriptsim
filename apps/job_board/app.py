@@ -801,4 +801,4 @@ if __name__ == "__main__":
     print(f"TalentHub running on http://localhost:{port}")
     print("Login: user@talenthub.com / JobPass123!")
     print("Planted bugs: applications not persisted, sort ignored, crash on duplicate apply")
-    app.run(debug=True, port=port)
+    app.run(host="0.0.0.0", debug=True, port=port)

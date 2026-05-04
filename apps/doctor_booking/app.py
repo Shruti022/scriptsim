@@ -816,4 +816,4 @@ if __name__ == "__main__":
     print(f"MediBook running on http://localhost:{port}")
     print("Login: patient@medibook.com / HealthPass123!")
     print("Planted bugs: double booking, IDOR cancel, vague confirmation")
-    app.run(debug=True, port=port)
+    app.run(host="0.0.0.0", debug=True, port=port)
