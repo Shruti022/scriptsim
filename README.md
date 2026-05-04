@@ -5,7 +5,6 @@ ScriptSim is an AI-driven accessibility and usability testing platform that leve
 Traditional accessibility tools primarily focus on surface-level compliance checks (e.g., missing labels or contrast issues). In contrast, ScriptSim goes a step further by identifying **behavioral accessibility issues**—situations where users struggle to navigate, understand, or safely interact with a system despite it being technically compliant.
 
 **Live demo:** [https://frontend-644775198874.us-central1.run.app](https://frontend-644775198874.us-central1.run.app)  
-**Backend API:** [https://backend-644775198874.us-central1.run.app](https://backend-644775198874.us-central1.run.app)  
 **GitHub:** [https://github.com/Shruti022/scriptsim](https://github.com/Shruti022/scriptsim)  
 **Deployed on:** Google Cloud Run (GCP project: `agentic-fp-scriptsim`, region: `us-central1`)
 
