@@ -55,6 +55,7 @@ class ScanRequest(BaseModel):
     password: Optional[str] = None
     personas: list[str] = ["kid", "power_user", "parent", "retiree"]
     scan_mode: str = "full"
+    is_demo: bool = False
 
 
 class ScanResponse(BaseModel):
@@ -194,7 +195,7 @@ async def create_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="Target URL is required")
 
     scan_id = str(uuid.uuid4())
-    is_demo = any(port in request.url for port in ["5000", "5001", "5002"]) or "localhost" in request.url or "127.0.0.1" in request.url
+    is_demo = request.is_demo or any(port in request.url for port in ["5000", "5001", "5002"]) or "localhost" in request.url or "127.0.0.1" in request.url
 
     if is_demo:
         background_tasks.add_task(

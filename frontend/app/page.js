@@ -138,6 +138,7 @@ export default function Dashboard() {
           password: isDemo ? selectedApp.password : null,
           personas: selectedPersonas,
           scan_mode: scanMode,
+          is_demo: isDemo,
         }),
       });
 
