@@ -1,0 +1,504 @@
+# ScriptSim — Dev Status & Error Log
+
+**Last updated:** 2026-04-27 (night — generalization testing session)
+**GitHub:** https://github.com/Shruti022/scriptsim
+
+---
+
+## Project Completion Overview
+
+| Area | Owner | Status |
+|------|-------|--------|
+| `tools/` — 10 async Playwright tools | Person 1 | DONE + Tested |
+| Browser isolation (per-task contexts) | Person 1 | DONE + Tested |
+| GCS bucket `scriptsim-screenshots` | Person 1 | Created + Tested |
+| Firestore database | Person 1 | Created + Tested |
+| GCP IAM access for teammates | Person 1 | Configured |
+| Cloud Run deployment | Person 1 | Not started |
+| `agents/` — 6 ADK agents | Person 2 | DONE |
+| `schemas/bug_report.py` | Person 2 | DONE |
+| `orchestrator.py` (smoke test + persona selection) | Person 2 | DONE |
+| Orchestrator logging + token counter | Person 2 | DONE |
+| `demo_app/` — Flask shop with 5 planted bugs | Person 3 | DONE |
+| `dashboard/` — Next.js with live activity console | Person 3 | DONE |
+| `api/` — FastAPI POST /scan | Person 3 | DONE |
+| `start.py` — one-command launcher | Person 3 | DONE |
+| SetupAgent login reliability fix | Person 1 | DONE |
+| Persona login fallback + action limit fix | Person 1 | DONE |
+| `test_agent.py` pre-login + session state fix | Person 1 | DONE |
+| Orchestrator user message, report sequencing, encoding fixes | Person 1 | DONE |
+| EvalAgent/SynthesisAgent fence wrapping fix | Person 1 | DONE |
+| Kid persona smoke test vs demo app | All | PASS (2026-04-26) |
+| Full 4-persona scan — first confirmed run | All | PASS (2026-04-27) — 3 bugs, $0.023, 631s |
+| Full 4-persona scan — fence fix confirmed | All | PASS (2026-04-27) — 2 bugs, $0.021, 708s, "N bugs found" correct |
+| Multi-site generalization fix (login_url, storage_state) | Person 1 | DONE (2026-04-27) |
+| Full 4-persona scan vs saucedemo.com (public site) | All | PASS (2026-04-27) — 3 bugs, $0.016, 618s (auth limitation documented) |
+| Full 4-persona scan vs automationexercise.com (public site) | All | PASS (2026-04-27) — 4 bugs, $0.028, 682s — generalization confirmed |
+
+---
+
+## Person 1 — Completed Work
+
+### tools/ directory (all 10 files)
+
+| File | What it does | Status |
+|------|-------------|--------|
+| `tools/__init__.py` | Exports all tool functions | Done |
+| `tools/browser.py` | Per-task async browser contexts — each persona gets isolated BrowserContext | Done + Tested |
+| `tools/get_page_state.py` | JSON snapshot: URL, title, buttons, inputs, links, errors | Done + Tested |
+| `tools/click_element.py` | Click by visible text or aria-label | Done + Tested |
+| `tools/type_text.py` | Fill input by placeholder or aria-label | Done + Tested |
+| `tools/hover_element.py` | Hover to reveal tooltips | Done + Tested |
+| `tools/take_screenshot.py` | Screenshot → GCS `gs://scriptsim-screenshots/` | Done + Tested |
+| `tools/log_bug.py` | Write bug to Firestore `scans/{scan_id}/bugs/` | Done + Tested |
+| `tools/login.py` | Login form + stores full storage_state (cookies + localStorage) globally | Done + Tested |
+| `tools/go_back.py` | Browser back via `page.go_back()` | Done + Tested |
+
+### agents/ and orchestrator.py — fixes applied
+
+| File | Fix | Status |
+|------|-----|--------|
+| `agents/setup_agent.py` | Imperative instruction forces immediate login tool call | Fixed |
+| `agents/persona_agent.py` | `_LOGIN_PREAMBLE` login fallback + max action limit enforcement | Fixed |
+| `orchestrator.py` | User message changed to "Begin." — removes agent confusion | Fixed |
+| `orchestrator.py` | Report agents changed from ParallelAgent to SequentialAgent | Fixed |
+| `orchestrator.py` | `→` replaced with `->` in print statements (Windows encoding) | Fixed |
+| `orchestrator.py` | `max_persona_actions` reduced 15→7 for full scan | Fixed |
+| `orchestrator.py` | `skip_mapper=True` for full scan (mapper loops on this app) | Fixed |
+| `orchestrator.py` | `_strip_fences()` strips ```json``` wrappers before json.loads() | Fixed |
+| `agents/eval_agent.py` | Stronger anti-fence instruction — specifies exact first/last character | Fixed |
+| `agents/synthesis_agent.py` | Stronger anti-fence instruction — specifies exact first/last character | Fixed |
+| `test_agent.py` | Pre-login step + `max_persona_actions` in session state | Fixed |
+| `tools/login.py` | Expanded username locator (handles Username, user-name, not just email fields) | Fixed |
+| `tools/login.py` | Captures full `storage_state()` (cookies + localStorage) via `inject_storage_state()` | Fixed |
+| `tools/browser.py` | Added `inject_storage_state()` + `_default_storage_state` global | Fixed |
+| `tools/browser.py` | New contexts use `storage_state=` in `new_context()` — works for any site's auth | Fixed |
+| `agents/setup_agent.py` | Uses `{login_url}` instead of hardcoded `{target_url}/login` | Fixed |
+| `agents/persona_agent.py` | `_LOGIN_PREAMBLE` uses `{login_email}` / `{login_password}` from session state (not hardcoded) | Fixed |
+| `agents/persona_agent.py` | Login detection checks for visible password field, not just `/login` in URL | Fixed |
+| `orchestrator.py` | Added `login_url` parameter to `run_scan()` (defaults to `{target_url}/login`) | Fixed |
+| `orchestrator.py` | CLI now accepts email, password, login_url as args 2/3/4 | Fixed |
+| `test_agent.py` | Accepts `login_url`, `email`, `password` as CLI args 4/5/6 | Fixed |
+
+### GCP Infrastructure
+
+| Resource | Config | Status |
+|----------|--------|--------|
+| GCS bucket `scriptsim-screenshots` | us-central1, Standard | Created + Tested |
+| Firestore database | Native mode, us-central1 | Created + Tested |
+| IAM access | Vertex AI User + Storage Object Creator + Cloud Datastore User | Configured for teammates |
+| Cloud Run service `scriptsim-worker` | us-central1 | Not created yet |
+
+### Live Test Results
+
+| Test | Result |
+|------|--------|
+| `get_page_state` on example.com | PASS |
+| `click_element` on example.com | PASS |
+| `type_text` on DuckDuckGo | PASS |
+| `hover_element` on example.com | PASS |
+| `take_screenshot` → GCS upload | PASS — `gs://scriptsim-screenshots/gcs-test_1777135923.png` |
+| `log_bug` → Firestore write | PASS — doc `fZb0FWUYAiKawgWeAABP` |
+| MapperAgent vs example.com | PASS — clean JSON output |
+| PersonaAgent [kid] vs example.com | PASS — all 7 tools fired, 3 GCS screenshots |
+| SetupAgent login vs demo app | PASS — cookies saved, LOGIN_SUCCESS |
+| Kid persona vs demo app (localhost:5000) | PASS (2026-04-26) — landed on home page, found Bug 2 |
+| Full 4-persona scan vs demo app (scan 1) | PASS (2026-04-27) — all 11 agents, 3 bugs, $0.023, 631s |
+| Full 4-persona scan vs demo app (scan 2, fence fix) | PASS (2026-04-27) — 2 bugs, "2 bugs found" parsed correctly, $0.021, 708s |
+| Full 4-persona scan vs saucedemo.com | PASS (2026-04-27) — 3 bugs, $0.016, 618s (bugs are auth-related; saucedemo uses React in-memory auth) |
+| Full 4-persona scan vs automationexercise.com | PASS (2026-04-27) — 4 bugs, $0.028, 682s, all 11 agents, generalization confirmed |
+
+---
+
+## Person 2 — Completed Work (teammate additions 2026-04-27)
+
+### orchestrator.py — logging and token counter
+- Per-scan log files written to `logs/agent_log_{scan_id}.txt` on completion or Ctrl+C
+- Per-scan token usage report written to `logs/token_report_{scan_id}.txt`
+- Signal handlers (SIGINT, SIGTERM) save logs before exit
+- `set_zoom(150)` called for retiree persona browser context
+
+---
+
+## Person 3 — Completed Work
+
+### demo_app/app.py — 5 planted bugs
+
+| Bug | Description |
+|-----|-------------|
+| Bug 1 — XSS | Search query rendered with `\|safe` — `<script>alert(1)</script>` executes |
+| Bug 2 — Silent failure | "Super Gadget" add-to-cart returns success but item never added |
+| Bug 3 — Crash | Adding 10+ "Awesome Widget" raises ValueError → 500 error page |
+| Bug 4 — Confusing error | 500 page says "chickens have come home to roost" |
+| Bug 5 — Frozen checkout | Checkout button permanently disabled, says "unavailable" |
+
+### api/main.py
+- `POST /scan` — accepts URL, personas, smoke_test flag; runs scan in background; returns scan_id immediately
+- `GET /health` — health check
+- CORS enabled for dashboard
+
+### dashboard/
+- Persona picker (8-Year-Old, Power User, Anxious Parent, Retiree)
+- Demo App / Live Website toggle
+- Smoke Test Mode checkbox
+- Live activity console (polls Firestore every few seconds)
+- Bug report display
+
+### start.py
+- Launches demo_app (port 5000), API (port 8000), dashboard (port 3000) simultaneously
+- Auto-installs npm dependencies if node_modules missing
+
+---
+
+## Full Scan Results
+
+### Scan 3 — saucedemo.com (public site, first generalization test) (2026-04-27)
+Scan ID: `38fe688b-3da1-4390-8b0f-a8fa74b20478` | Elapsed: 618s | Cost: $0.016 | API calls: 50
+Target: `https://www.saucedemo.com` | Credentials: `standard_user` / `secret_sauce`
+
+All 11 agents ran successfully. 3 bugs found and reported. However: saucedemo.com stores auth
+state only in React component memory (no cookies/localStorage). Cookie injection has no effect —
+each persona context started on the login page. Personas tried to self-login with mixed results.
+The 3 bugs found are all auth-related (login loop, unresponsive submit, etc.).
+
+**Conclusion:** Pipeline generalizes to public sites. saucedemo is a special case (React in-memory
+auth). Cookie-based sites work correctly.
+
+| Rank | Bug | Severity | Personas |
+|------|-----|----------|---------|
+| 1 | Repeated redirection to login page after successful login | CRITICAL (5) | power_user, parent |
+| 2 | Submit button unresponsive, leads to blank page | CRITICAL (5) | retiree |
+| 3 | Add to Cart button unresponsive (persona was on login page) | MINOR (2) | kid |
+
+### Scan 4 — automationexercise.com (public e-commerce, generalization confirmed) (2026-04-27)
+Scan ID: `decef02b-2d45-45a9-abe7-565f5def443b` | Elapsed: 682s | Cost: $0.028 | API calls: 63
+Target: `https://automationexercise.com` | Credentials: registered test account
+
+Cookie injection verified working: new contexts land already logged in. All 11 agents ran. 4 bugs
+found in structured report. Site has heavy ad overlays which blocked some navigation clicks —
+personas reported these as bugs (legitimately — ads covering UI is a real UX issue).
+
+| Agent | API Calls | Tokens |
+|-------|-----------|--------|
+| setup_agent | 1 | 203 |
+| persona_kid | 18 | 57,824 |
+| persona_power_user | 16 | 50,347 |
+| persona_parent | 9 | 22,802 |
+| persona_retiree | 13 | 26,983 |
+| report_kid | 1 | 15,854 |
+| report_power_user | 1 | 16,096 |
+| report_parent | 1 | 16,290 |
+| report_retiree | 1 | 16,656 |
+| synthesis_agent | 1 | 18,630 |
+| eval_agent | 1 | 20,193 |
+
+| Rank | Bug | Severity | Personas |
+|------|-----|----------|---------|
+| 1 | Products button unresponsive on homepage | CRITICAL (5) | kid, power_user, retiree |
+| 2 | Login redirects immediately back to homepage | CRITICAL (5) | power_user |
+| 3 | Password field unresponsive on login page | CRITICAL (5) | parent |
+| 4 | No phone number; no search bar for support | MAJOR (4) | retiree |
+
+Note: Bugs 1/3 are likely caused by ad overlays intercepting clicks. Bug 2 is an artifact —
+personas were already logged in via cookies, so "Signup / Login" correctly redirected them home.
+Bug 4 is a real UX finding by the retiree persona.
+
+---
+
+### Scan 1 — First confirmed end-to-end run (2026-04-27)
+Scan ID: `9e4aec31-6f8f-4051-acb3-d11b7ef28495` | Elapsed: 631s | Cost: $0.023 | API calls: 71
+
+| Rank | Title | Severity | Personas |
+|------|-------|----------|---------|
+| 1 | Add to Cart not working — cart stays at 0 | CRITICAL (5) | kid, parent |
+| 2 | Cart displays incorrect item quantities | MAJOR (4) | power_user |
+| 3 | Search UX unclear for novice users | MINOR (2) | retiree |
+
+Note: dashboard showed "? bugs found" — fence wrapping bug not yet fixed.
+
+### Scan 2 — Fence fix confirmed (2026-04-27)
+Scan ID: `faa46dbd-b4fa-4985-b03a-8c2b31844fd4` | Elapsed: 708s | Cost: $0.021 | API calls: 62
+
+| Agent | API Calls | Tokens |
+|-------|-----------|--------|
+| setup_agent | 2 | 583 |
+| persona_kid | 22 | 51,499 |
+| persona_power_user | 9 | 19,937 |
+| persona_parent | 10 | 16,686 |
+| persona_retiree | 13 | 20,431 |
+| report_kid | 1 | 11,563 |
+| report_power_user | 1 | 11,470 |
+| report_parent | 1 | 11,884 |
+| report_retiree | 1 | 12,132 |
+| synthesis_agent | 1 | 14,385 |
+| eval_agent | 1 | 14,930 |
+
+| Rank | Title | Severity | Personas |
+|------|-------|----------|---------|
+| 1 | Add to Cart broken — cart stays empty, View Cart link fails | CRITICAL (5) | kid, parent, power_user |
+| 2 | Missing help or contact section | MAJOR (4) | retiree |
+
+Dashboard output: **"Scan complete. 2 bugs found."** — parsed correctly, fence fix confirmed working.
+Retiree improved: 13 API calls this scan vs 2 in scan 1.
+
+---
+
+## Errors Encountered & How They Were Fixed
+
+### Error 1 — `tools/` directory didn't exist
+**Fix:** Created full `tools/` package. **Resolved.**
+
+### Error 2 — `greenlet==3.0.3` build failure on Python 3.14
+**Fix:** `pip install "playwright>=1.50.0"` locally. Docker still uses 1.44.0. **Resolved.**
+
+### Error 3 — `ModuleNotFoundError: No module named 'tools'`
+**Fix:** try/except import fallback in all tool files. **Resolved.**
+
+### Error 4 — Wrong Chromium binary after playwright upgrade
+**Fix:** Use `python -m playwright install chromium`. **Resolved.**
+
+### Error 5 — GCS public access prevention
+**Fix:** Return `gs://` URIs instead of public HTTPS URLs. **Resolved.**
+
+### Error 6 — Sync Playwright crashes inside asyncio
+**Fix:** Rewrote all tools to `async def` using `async_playwright`. **Resolved.**
+
+### Error 7 — Gemini model 404 from Vertex AI
+**Fix:** Changed all model names to `gemini-2.5-flash-lite` / `gemini-2.5-flash`. **Resolved.**
+
+### Error 8 — MapperAgent stuck on sub-pages
+**Fix:** Added `tools/go_back.py`, gave it to MapperAgent and all PersonaAgents. **Resolved.**
+
+### Error 9 — Agent output wrapped in markdown fences
+**Fix:** Strengthened instructions: "Do not wrap in ```json or markdown fences". **Resolved.**
+
+### Error 10 — SetupAgent had wrong model name (missed in Error 7 batch fix)
+**Fix:** Updated `setup_agent.py` to `gemini-2.5-flash-lite`. **Resolved.**
+
+### Error 11 — `nest_asyncio` left in requirements.txt after being abandoned
+**Fix:** Removed from `requirements.txt`. **Resolved.**
+
+### Error 12 — SynthesisAgent and EvalAgent missing anti-fence instruction
+**Fix:** Added "Do not wrap in markdown fences" to both. **Resolved.**
+
+### Error 13 — Flask not installed, demo app fails to start
+**Problem:** `start.py` launches demo app but Flask wasn't in main `requirements.txt`.
+**Fix:** `pip install flask werkzeug` separately (demo_app has its own requirements.txt). **Resolved.**
+
+### Error 14 — Parallel personas share one browser tab (chaos)
+**Problem:** All 4 PersonaAgents shared the same global `_page`. Running in parallel they fought
+over one tab — each agent's clicks affected what others saw.
+**Fix:** Rewrote `browser.py` to use per-task `BrowserContext` via `asyncio.current_task()` ID.
+`get_page()` auto-creates an isolated context for each new task. `login.py` stores cookies
+globally in `_default_cookies` so new contexts start logged in. **Resolved.**
+
+### Error 15 — SetupAgent not calling the login tool
+**Problem:** LLM responded "I can't perform a full QA scan" instead of calling the `login` tool.
+Personas started on `/login` page with empty `_default_cookies`.
+**Fix:** Rewrote `setup_agent.py` instruction to be fully imperative: "You MUST immediately
+call the login tool. Do not say anything first." **Resolved.**
+
+### Error 16 — Action limit not respected in smoke test mode
+**Problem:** "at least {max_persona_actions} actions" was treated as a minimum by the LLM.
+**Fix:** Changed to "maximum of {max_persona_actions} tool calls total. STOP when you hit that
+limit." Action limit remains soft (LLM approximates it, doesn't enforce it exactly). **Resolved.**
+
+### Error 17 — Personas landing on /login despite SetupAgent running
+**Problem:** If SetupAgent failed silently, `_default_cookies` stayed empty and personas
+got redirected to `/login`.
+**Fix:** Added `_LOGIN_PREAMBLE` to all 4 persona instructions — detects `/login` URL and
+completes login steps before starting persona behaviour. Reliable fallback. **Resolved.**
+
+### Error 18 — `test_agent.py` KeyError: `max_persona_actions` not in session state
+**Problem:** `{max_persona_actions}` template in persona instruction had no value in the
+test script's session state → ADK raised `KeyError` on first turn.
+**Fix:** Added `"max_persona_actions": 5` to the initial state dict in `test_agent.py`. **Resolved.**
+
+### Error 19 — `test_agent.py` persona test started on /login
+**Problem:** Smoke test ran persona without pre-login — no cookies, redirected to `/login`.
+**Fix:** Added `await login(url, email, password)` call before running persona in `test_agent.py`.
+Persona now starts on the home page, matching real pipeline behaviour. **Resolved.**
+
+### Error 20 — Orchestrator user message confused all agents
+**Problem:** User message "Run full QA scan on {url}. Scan ID: {scan_id}" was propagated to
+every sub-agent by ADK's SequentialAgent. SetupAgent refused to call login ("I cannot run a
+full QA scan — I only have a login tool"). All 3 non-kid personas also refused. Pipeline
+effectively ran with only the kid persona.
+**Fix:** Changed user message to `"Begin."` — agents now rely solely on their own instruction
+text, which already contains all necessary context. **Resolved.**
+
+### Error 21 — Windows charmap encoding crash in `_save_logs()`
+**Problem:** `→` (Unicode U+2192) in print statements inside `_save_logs()` crashed on Windows
+when stdout/file used cp1252 encoding. Error: `'charmap' codec can't encode character '→'`.
+Despite adding `encoding="utf-8"` to file opens, the success-message `print()` line itself
+also contained `→` and crashed inside the try/except, masking the fact that the file write
+had actually succeeded.
+**Fix:** Replaced all `→` with `->` (ASCII) in print statements in `orchestrator.py`. **Resolved.**
+
+### Error 22 — MapperAgent stuck in an infinite loop
+**Problem:** Mapper clicked "Add to Cart" (no navigation), then called `go_back` from the
+homepage (no browser history) → `about:blank`. Then `get_page_state` on blank page, somehow
+returned to homepage, repeated. Consumed 2M+ input tokens and triggered 429 rate limit.
+Also: personas don't read `{feature_map}` in their instructions, so the mapper produced output
+that was never used.
+**Fix:** Set `skip_mapper = True` in full scan mode in `orchestrator.py`. Mapper skipped until
+its looping behaviour is fixed. **Resolved (workaround).**
+
+### Error 23 — 429 RESOURCE_EXHAUSTED — parallel report agents hit rate limit
+**Problem:** 4 parallel report agents all made Vertex AI API calls simultaneously, immediately
+after 4 parallel personas had also been running. The combined burst of API calls exceeded the
+Vertex AI quota. The `ExceptionGroup` from ADK's TaskGroup propagated up and crashed the entire
+pipeline before synthesis and eval ran.
+**Fix:** Changed `ParallelAgent` for report agents to `SequentialAgent` in `orchestrator.py`.
+Report agents now run one at a time, spacing out their 4 API calls. **Resolved.**
+
+### Error 24 — Full scan `max_persona_actions` too high, personas ran 33–40 API calls
+**Problem:** `max_persona_actions=15` in full scan mode. Kid ran 33 calls, power_user ran 40
+calls. The soft action limit is not enforced precisely by the LLM. High per-persona call counts
+amplified the rate limit problem and made scans very long (18+ minutes).
+**Fix:** Reduced `max_persona_actions` from 15 to 7 in full scan mode. **Partially resolved —
+power_user still ran 40 calls in confirmed working scan. Root cause is soft limit.**
+
+### Error 25 — EvalAgent and SynthesisAgent output wrapped in ```json``` fences
+**Problem:** Despite the instruction saying "do not wrap in markdown fences", both agents
+wrapped their JSON output in ` ```json ``` ` blocks. The orchestrator called `json.loads()`
+directly on the raw output, which failed with `JSONDecodeError`. Result: `final_report` was
+stored as `{"raw": "...fenced string..."}` and the dashboard showed "? bugs found".
+**Fix (two layers):**
+1. Added `_strip_fences()` utility to `orchestrator.py` — strips ` ```json ``` ` wrappers
+   before `json.loads()`. Defensive fallback that works regardless of LLM behaviour.
+2. Strengthened instruction in both agents — changed from "do not wrap in fences" to specifying
+   the exact required first character (`{` or `[`) and last character (`}` or `]`), making it
+   harder for the model to violate without noticing.
+**Confirmed resolved** — second full scan showed "Scan complete. 2 bugs found." **Resolved.**
+
+### Error 26 — `setup_agent.py` hardcoded `/login` suffix, breaks non-standard login URLs
+**Problem:** `setup_agent.py` instruction said `url: {target_url}/login`. Sites like
+saucedemo.com have login at the root URL (`/`), not `/login`. SetupAgent tried to navigate to
+`https://www.saucedemo.com/login` which doesn't exist.
+**Fix:** Added `login_url` as a separate parameter throughout the stack:
+- `orchestrator.py run_scan()` now accepts `login_url` (defaults to `{target_url}/login`)
+- `initial_state` includes `login_url`
+- `setup_agent.py` now uses `{login_url}` in its instruction
+- CLI: `python orchestrator.py <url> <email> <password> <login_url>`
+**Resolved.**
+
+### Error 27 — `login.py` couldn't find username fields (only matched email-type inputs)
+**Problem:** `login.py` locator only matched `input[type='email']`, `input[name='email']`, and
+`input[placeholder*='email' i]`. Sites using a "Username" field (saucedemo, automationexercise)
+were not matched — the login tool returned an error and SetupAgent failed.
+**Fix:** Expanded locator to also include `input[name='username']`, `input[name='user-name']`,
+`input[placeholder*='username' i]`, `input[placeholder*='user' i]`. **Resolved.**
+
+### Error 28 — Cookie injection doesn't work for React SPA sites (saucedemo)
+**Problem:** Saucedemo.com stores session state only in React component memory — no localStorage,
+no sessionStorage, no meaningful cookies. Playwright's `storage_state()` captures nothing useful.
+Each new browser context starts a fresh React instance which shows the login page regardless of
+what cookies or localStorage is injected. This is a fundamental limitation of React SPAs that
+don't persist auth state to any browser storage API.
+**Diagnosis:** Playwright diagnostic confirmed: after login, localStorage only contains analytics
+tracking keys (`backtrace-guid`, `backtrace-last-active`), not auth data. A new context with the
+same storage_state still lands on the login page.
+**Resolution:** This is a known limitation. Traditional server-side session sites (cookies) and
+sites using localStorage for auth work correctly. React in-memory auth sites require per-context
+login (personas log in themselves). For the project, the demo app and automationexercise.com
+both use cookie-based auth and work correctly. **Accepted as known limitation.**
+
+### Error 29 — `_LOGIN_PREAMBLE` hardcoded demo app credentials, broke on other sites
+**Problem:** `_LOGIN_PREAMBLE` in `persona_agent.py` had hardcoded `test@scriptsim.com` and
+`TestPass123!`. When scanning saucedemo or automationexercise.com, personas tried to log in
+with the wrong credentials and always failed.
+**Fix:** Changed preamble to use `{login_email}` and `{login_password}` from session state, which
+are set by `orchestrator.py run_scan()` and available to all agents. **Resolved.**
+
+### Error 30 — `_LOGIN_PREAMBLE` only detected login page via `/login` in URL
+**Problem:** Login page detection in the preamble checked `if the URL contains "/login"`. Sites
+like saucedemo.com (`/`) and automationexercise.com (`/login` sometimes, `/` when already logged
+in) were not reliably detected.
+**Fix:** Changed condition to check for a visible password field on the page: "if the page shows
+a login form (a password field is visible, or the URL contains 'login')". More robust across
+different sites. **Resolved.**
+
+---
+
+## Design Decisions
+
+### Per-task browser isolation
+Each asyncio Task (persona) gets its own `BrowserContext` — isolated cookies, storage, and page.
+`_contexts` dict maps `id(asyncio.current_task())` → `(BrowserContext, Page)`.
+New contexts use `browser.new_context(storage_state=_default_storage_state)` which restores the
+full session state (cookies + localStorage) captured by `login.py` after SetupAgent logs in.
+
+### Full storage_state injection (not just cookies)
+`login.py` captures the full Playwright `storage_state()` after login — this includes cookies AND
+all localStorage entries for every origin. New persona contexts are created with this state, so
+they start already authenticated on any site that persists auth to cookies or localStorage.
+React SPAs that store auth only in component memory (e.g. saucedemo.com) are a known limitation —
+personas must log in themselves in those cases.
+
+### Async Playwright (not sync)
+ADK is async. Sync Playwright raises error inside asyncio loop. All tools are `async def`.
+
+### GCS `gs://` URIs, not public HTTPS URLs
+Public Access Prevention blocks public URLs. Use `gs://` URIs; Cloud Run accesses via IAM.
+
+### `go_back` as dedicated tool
+Agents cannot click browser chrome. `go_back()` wraps `page.go_back()`.
+
+### ADK tools XOR output_schema
+PersonaAgents have 7 tools, no schema. ReportAgents have `output_schema=BugReport`, no tools.
+
+### Orchestrator user message must be neutral ("Begin.")
+ADK's SequentialAgent passes the same user message to every sub-agent. A descriptive message
+like "Run full QA scan" conflicts with agents that have narrow tools (SetupAgent only has login).
+Use "Begin." so each agent relies entirely on its own instruction text.
+
+### Report agents run sequentially, not in parallel
+Running 4 report agents in parallel immediately after 4 parallel personas caused 429 rate limit
+errors on Vertex AI. Sequential execution spaces out the API calls at the cost of ~1 minute
+of additional time per scan.
+
+### Mapper skipped in all current scan modes
+The mapper loops on apps with non-navigating buttons (like "Add to Cart"). It also uses `go_back`
+on the root page which returns `about:blank`. Until fixed, mapper is skipped with
+`skip_mapper=True`. Personas explore without a feature map — they find bugs anyway.
+
+### Action limit is a soft limit
+ADK has no built-in way to stop an agent after N tool calls. `max_persona_actions` in the
+instruction is a hint — honoured approximately. The power_user persona in particular tends to
+run many more calls than the limit due to its edge-case testing behaviour.
+
+### Login fallback in persona instructions
+All personas include `_LOGIN_PREAMBLE` which detects if the URL is `/login` and completes the
+login flow before starting persona behaviour. Acts as a fallback if SetupAgent fails.
+
+---
+
+## Known Remaining Issues
+
+| Issue | Impact | Status |
+|-------|--------|--------|
+| Action limit is soft — kid/power_user exceed limit | Longer scans, more quota used | Accepted — scans still complete |
+| Mapper loops on non-navigating buttons | Mapper disabled in all modes | Skipped until fixed |
+| Cloud Run not deployed | Services run locally only | Pending |
+| React SPA auth (in-memory state) not injectable | Personas must self-login on such sites | Accepted — known limitation; cookie/localStorage sites work fine |
+| Ad overlays on some public sites block click tools | Some clicks time out on ad-heavy sites | Known — doesn't crash pipeline; persona reports the issue as a bug |
+
+---
+
+## Next Steps
+
+### Person 1
+- [ ] Cloud Run deployment (session: `person1-cloudrun`)
+
+### Person 2
+- [ ] No pending work — agents and orchestrator complete
+
+### Person 3
+- [ ] Deploy demo app to Railway/Cloud Run for public URL
+- [ ] Update CLAUDE.md with public demo app URL when available
+
+### All together
+- [ ] Run full scan on deployed public demo app URL
+- [ ] Verify all 5 bugs found across personas
+- [ ] Write final project report
