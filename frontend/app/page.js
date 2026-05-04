@@ -8,17 +8,17 @@ const PERSONA_OPTIONS = [
   { id: 'retiree', label: 'Retiree', icon: '👓', desc: 'Simplified, high-contrast user.' },
 ];
 
-const getDemoAppUrl = (port) => {
+const getLocalUrl = (port) => {
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.hostname}:${port}`;
   }
   return `http://localhost:${port}`;
 };
 
-const DEMO_APPS = [
-  { id: 'shop', label: 'ScriptSim Shop', getUrl: () => getDemoAppUrl(5000), icon: '🛒', desc: 'E-commerce store with cart bugs.', email: 'test@scriptsim.com', password: 'TestPass123!' },
-  { id: 'jobs', label: 'TalentHub Jobs', getUrl: () => getDemoAppUrl(5001), icon: '💼', desc: 'Job board with filtering & crash bugs.', email: 'user@talenthub.com', password: 'JobPass123!' },
-  { id: 'doctor', label: 'MediBook Health', getUrl: () => getDemoAppUrl(5002), icon: '🏥', desc: 'Doctor booking with IDOR & double booking.', email: 'patient@medibook.com', password: 'HealthPass123!' },
+const DEMO_APPS_BASE = [
+  { id: 'shop',   label: 'ScriptSim Shop',  icon: '🛒', desc: 'E-commerce store with cart bugs.',            email: 'test@scriptsim.com',    password: 'TestPass123!', fallbackPort: 5000 },
+  { id: 'jobs',   label: 'TalentHub Jobs',  icon: '💼', desc: 'Job board with filtering & crash bugs.',      email: 'user@talenthub.com',    password: 'JobPass123!',    fallbackPort: 5001 },
+  { id: 'doctor', label: 'MediBook Health', icon: '🏥', desc: 'Doctor booking with IDOR & double booking.',  email: 'patient@medibook.com',  password: 'HealthPass123!', fallbackPort: 5002 },
 ];
 
 export default function Dashboard() {
@@ -30,11 +30,27 @@ export default function Dashboard() {
   const [isScanning, setIsScanning] = useState(false);
   const [url, setUrl] = useState('');
   const [isDemo, setIsDemo] = useState(true);
-  const [selectedDemoApp, setSelectedDemoApp] = useState(DEMO_APPS[0].id);
-  const [scanMode, setScanMode] = useState('full'); // 'full', 'smoke', 'fast'
+  const [selectedDemoApp, setSelectedDemoApp] = useState(DEMO_APPS_BASE[0].id);
+  const [scanMode, setScanMode] = useState('full');
   const [selectedPersonas, setSelectedPersonas] = useState(['kid', 'power_user', 'parent', 'retiree']);
   const [scanSummary, setScanSummary] = useState(null);
+  const [demoUrls, setDemoUrls] = useState({});
   const completionAlertShown = useRef(false);
+
+  const DEMO_APPS = DEMO_APPS_BASE.map(app => ({
+    ...app,
+    getUrl: () => demoUrls[app.id] || getLocalUrl(app.fallbackPort),
+  }));
+
+  useEffect(() => {
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      const urls = {};
+      if (cfg.shopUrl)   urls['shop']   = cfg.shopUrl;
+      if (cfg.jobUrl)    urls['jobs']   = cfg.jobUrl;
+      if (cfg.doctorUrl) urls['doctor'] = cfg.doctorUrl;
+      setDemoUrls(urls);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Don't fetch anything until a scan has been started
@@ -113,8 +129,7 @@ export default function Dashboard() {
     const targetUrl = isDemo ? selectedApp.getUrl() : url;
 
     try {
-      const apiUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8000/scan` : 'http://127.0.0.1:8000/scan';
-      const res = await fetch(apiUrl, {
+      const res = await fetch('/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -143,7 +158,7 @@ export default function Dashboard() {
         alert(`Error: ${typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail) || 'Failed to start scan'}`);
       }
     } catch (err) {
-      alert('Could not connect to ScriptSim API. Make sure start.py is running.');
+      alert('Could not connect to ScriptSim API. Make sure the backend is running.');
     } finally {
       setIsScanning(false);
     }
