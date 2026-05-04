@@ -20,9 +20,12 @@ async def log_bug(scan_id: str, persona: str, description: str, severity: int, s
             try:
                 from tools.take_screenshot import take_screenshot
                 result = json.loads(await take_screenshot(label=f"auto-{persona}-bug"))
-                screenshot_url = result.get("url", "")
-            except Exception:
-                pass
+                if result.get("success"):
+                    screenshot_url = result.get("url", "")
+                else:
+                    print(f"[log_bug] Auto-screenshot failed: {result.get('error', 'Unknown error')}")
+            except Exception as e:
+                print(f"[log_bug] ERROR calling take_screenshot: {e}")
 
         from google.cloud import firestore
         db = firestore.Client()

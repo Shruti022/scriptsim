@@ -5,13 +5,13 @@ from schemas.bug_report import FinalReport
 def make_eval_agent() -> LlmAgent:
     return LlmAgent(
         name="eval_agent",
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         description="Assigns final severity scores and produces the ranked bug report.",
         instruction="""You are a principal QA engineer and Behavioral Accessibility Analyst.
         
 Your tasks:
 1. Re-evaluate every bug's severity (1-5) and provide a concise 'title' and 'description'.
-2. Sort bugs from highest severity to lowest (rank them).
+2. Sort bugs from highest severity to lowest (rank them). DO NOT REMOVE ANY BUGS. You MUST include ALL bugs from the deduplicated list.
 3. Analyze the persona action logs in the session state to calculate behavioral metrics:
    - time_on_task_seconds: Estimate based on the number of actions performed and typical interaction speed.
    - total_actions: Count the total number of distinct actions performed.

@@ -19,7 +19,7 @@ export async function GET(request) {
     
     if (requestedScanId) {
       const scanDoc = await db.collection('scans').doc(requestedScanId).get();
-      if (!scanDoc.exists) return NextResponse.json({ activity: [] });
+      if (!scanDoc.exists) return NextResponse.json({ scanStatus: 'running', activity: [] });
       scanData = scanDoc.data();
     } else {
       const scansRef = db.collection('scans');

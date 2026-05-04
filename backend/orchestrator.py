@@ -35,7 +35,8 @@ from agents.persona_agent import make_persona_agent
 from agents.report_agent import make_report_agent
 from agents.synthesis_agent import make_synthesis_agent
 from agents.eval_agent import make_eval_agent
-from tools.browser import start_browser, close_browser, set_context_name
+from tools.browser import start_browser, close_browser, set_context_name, has_context
+from tools.take_screenshot import take_screenshot as _take_screenshot
 
 PERSONAS = ["kid", "power_user", "parent", "retiree"]
 
@@ -396,6 +397,22 @@ async def run_scan(
             except Exception as e:
                 print(f"Activity write error: {e}")
 
+    # ── Auto-capture screenshots for each persona's final page state ─────────
+    persona_screenshots = {}  # persona_name → GCS URI
+    for p_name in personas:
+        try:
+            if has_context(p_name):
+                set_context_name(p_name)
+                result_json = await _take_screenshot(label=f"final-{p_name}")
+                result = json.loads(result_json)
+                if result.get("success"):
+                    persona_screenshots[p_name] = result.get("url", "")
+                    _log(f"[auto-screenshot] Captured for {p_name}: {result.get('url')}")
+                else:
+                    _log(f"[auto-screenshot] Failed for {p_name}: {result.get('error')}")
+        except Exception as e:
+            _log(f"[auto-screenshot] Error for {p_name}: {e}")
+
     await close_browser()
     _save_logs()
 
@@ -423,6 +440,37 @@ async def run_scan(
         except (json.JSONDecodeError, TypeError):
             final_report = {"raw": str(final_report_raw)}
 
+    # ── Attach auto-captured screenshots to final report bugs ──────────────
+    if isinstance(final_report, dict) and final_report.get("bugs"):
+        from tools.browser import get_url_screenshots
+        from tools.take_screenshot import upload_local_screenshot
+        url_screenshots = get_url_screenshots()
+        uploaded_urls = {} # local_path -> gcs_uri
+
+        for bug in final_report["bugs"]:
+            existing_uri = bug.get("screenshot_url", "")
+            if not existing_uri or not existing_uri.startswith("gs://"):
+                bug_url = bug.get("url", "")
+                
+                # 1. Try matching by exact URL from auto-captured states
+                if bug_url and bug_url in url_screenshots:
+                    local_path = url_screenshots[bug_url]
+                    if local_path not in uploaded_urls:
+                        uploaded_urls[local_path] = upload_local_screenshot(local_path)
+                    
+                    if uploaded_urls[local_path]:
+                        bug["screenshot_url"] = uploaded_urls[local_path]
+                        continue
+
+                # 2. Fallback to the final persona screenshot
+                affected = bug.get("personas_affected", [])
+                if not affected and bug.get("persona"):
+                    affected = [bug["persona"]]
+                for p in affected:
+                    if p in persona_screenshots:
+                        bug["screenshot_url"] = persona_screenshots[p]
+                        break
+
     try:
         db_client = firestore.Client()
         db_client.collection("scans").document(scan_id).update({
@@ -431,6 +479,27 @@ async def run_scan(
         })
     except Exception as e:
         print(f"Failed to update scan status: {e}")
+
+    # ── Write bugs with screenshots to Firestore subcollection ────────────
+    if isinstance(final_report, dict) and final_report.get("bugs"):
+        try:
+            db_client = firestore.Client()
+            for bug in final_report["bugs"]:
+                persona_list = bug.get("personas_affected", [])
+                primary_persona = persona_list[0] if persona_list else bug.get("persona", "unknown")
+                screenshot_uri = bug.get("screenshot_url", "")
+                db_client.collection("scans").document(scan_id).collection("bugs").add({
+                    "persona": primary_persona,
+                    "description": bug.get("description", ""),
+                    "severity": bug.get("severity", 3),
+                    "url": bug.get("url", ""),
+                    "title": bug.get("title", ""),
+                    "screenshot_gcs_uri": screenshot_uri,
+                    "screenshot_url": screenshot_uri,
+                    "timestamp": int(time.time()),
+                })
+        except Exception as e:
+            print(f"Failed to write bug subcollection: {e}")
 
     _log(f"[scan:{scan_id}] Complete — {final_report.get('total_bugs', '?')} bugs found.")
     return {"scan_id": scan_id, "report": final_report}

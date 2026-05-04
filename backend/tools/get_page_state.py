@@ -12,6 +12,20 @@ async def get_page_state() -> str:
     before deciding what action to take."""
     try:
         page = await get_page()
+        
+        # Auto-capture for evidence mapping later
+        from tools.browser import _ctx_name, add_url_screenshot
+        import os, tempfile, time
+        ctx = _ctx_name()
+        url_safe = page.url.replace("/", "_").replace(":", "")[:50]
+        filename = f"auto_{ctx}_{url_safe}_{int(time.time())}.png"
+        local_path = os.path.join(tempfile.gettempdir(), filename)
+        
+        try:
+            await page.screenshot(path=local_path, full_page=False, timeout=2000)
+            add_url_screenshot(page.url, local_path)
+        except Exception:
+            pass
 
         buttons = await page.locator("button:visible, [role='button']:visible").all()
         button_texts = []

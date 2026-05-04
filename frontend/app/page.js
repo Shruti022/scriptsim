@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const PERSONA_OPTIONS = [
   { id: 'kid', label: '8-Year-Old', icon: '👶', desc: 'Random clicking, confused.' },
@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [scanMode, setScanMode] = useState('full'); // 'full', 'smoke', 'fast'
   const [selectedPersonas, setSelectedPersonas] = useState(['kid', 'power_user', 'parent', 'retiree']);
   const [scanSummary, setScanSummary] = useState(null);
+  const completionAlertShown = useRef(false);
 
   useEffect(() => {
     // Don't fetch anything until a scan has been started
@@ -47,10 +48,11 @@ export default function Dashboard() {
 
         // We must use functional state updates here because useEffect closes over the initial state
         setScanStatus(prevStatus => {
-          if (actData.scanStatus === 'completed' && prevStatus === 'running') {
+          if (actData.scanStatus === 'completed' && prevStatus === 'running' && !completionAlertShown.current) {
+            completionAlertShown.current = true;
             alert('Scan complete! The dashboard now shows the final deduplicated bug report.');
           }
-          return actData.scanStatus || '';
+          return actData.scanStatus || prevStatus || '';
         });
 
         setBugs(bugData.bugs || []);
@@ -95,7 +97,9 @@ export default function Dashboard() {
     setIsScanning(true);
     setBugs([]);
     setActivity([]);
+    setActiveScanId(null);
     setScanStatus('running');
+    completionAlertShown.current = false;
     setScanSummary(null);
 
     const selectedApp = DEMO_APPS.find(a => a.id === selectedDemoApp);
@@ -158,7 +162,7 @@ export default function Dashboard() {
     <div className="container">
       <header className="header">
         <h1>ScriptSim</h1>
-        <p>AI-Powered Parallel QA Testing</p>
+        <p>AI-Powered Behavioral Accessibility Testing Platform</p>
       </header>
 
       <section className="card scan-config">
@@ -198,15 +202,6 @@ export default function Dashboard() {
                     key={app.id}
                     className={`demo-app-option ${selectedDemoApp === app.id ? 'active' : ''}`}
                     onClick={() => setSelectedDemoApp(app.id)}
-                    style={{
-                      padding: '0.75rem',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      background: selectedDemoApp === app.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                      borderColor: selectedDemoApp === app.id ? 'var(--accent-color)' : 'var(--border-color)',
-                    }}
                   >
                     <div style={{ fontSize: '1.2rem', marginBottom: '0.25rem' }}>{app.icon}</div>
                     <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{app.label}</div>
@@ -283,10 +278,10 @@ export default function Dashboard() {
       <div className="section-header">
         <h2 style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           Live Activity
-          {scanStatus === 'running' && <span style={{ fontSize: '0.9rem', color: 'var(--accent-color)', fontWeight: 'normal' }}>(Running...)</span>}
+          {scanStatus === 'running' && <span style={{ fontSize: '0.9rem', color: 'var(--accent-cyan)', fontWeight: 'normal' }}>(Running...)</span>}
           {scanStatus === 'completed' && <span style={{ fontSize: '0.9rem', color: '#10b981', fontWeight: 'normal' }}>(Completed)</span>}
         </h2>
-        <span className="count-badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}>
+        <span className="count-badge">
           {activity.length} Events
         </span>
       </div>
@@ -326,7 +321,7 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
             {scanSummary.metrics.map(m => (
-              <div key={m.persona} className="card" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)' }}>
+              <div key={m.persona} className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span style={{ fontSize: '1.5rem' }}>{PERSONA_OPTIONS.find(p => p.id === m.persona)?.icon}</span>
@@ -372,23 +367,26 @@ export default function Dashboard() {
       </div>
 
       {scanStatus === 'completed' && scanSummary && (
-        <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--accent-color)' }}>
-          <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{scanSummary.total_bugs}</div>
-              <div style={{ opacity: 0.6, fontSize: '0.85rem' }}>Total Bugs</div>
+        <div className="card" style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--text-primary)', lineHeight: 1, marginBottom: '0.5rem' }}>{scanSummary.total_bugs}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Total Bugs</div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>{scanSummary.critical_count}</div>
-              <div style={{ opacity: 0.6, fontSize: '0.85rem' }}>Critical</div>
+            <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '1.5rem', borderRadius: '1rem', textAlign: 'center', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#ef4444', lineHeight: 1, marginBottom: '0.5rem' }}>{scanSummary.critical_count}</div>
+              <div style={{ color: '#ef4444', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, opacity: 0.8 }}>Critical</div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f97316' }}>{scanSummary.major_count}</div>
-              <div style={{ opacity: 0.6, fontSize: '0.85rem' }}>Major</div>
+            <div style={{ background: 'rgba(249, 115, 22, 0.05)', padding: '1.5rem', borderRadius: '1rem', textAlign: 'center', border: '1px solid rgba(249, 115, 22, 0.1)' }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#f97316', lineHeight: 1, marginBottom: '0.5rem' }}>{scanSummary.major_count}</div>
+              <div style={{ color: '#f97316', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, opacity: 0.8 }}>Major</div>
             </div>
           </div>
           {scanSummary.scan_summary && (
-            <p style={{ opacity: 0.8, fontSize: '0.95rem', lineHeight: '1.6' }}>{scanSummary.scan_summary}</p>
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '1rem', borderLeft: '4px solid var(--accent-cyan)' }}>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-cyan)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Executive Summary</h4>
+              <p style={{ margin: 0, opacity: 0.85, fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-secondary)' }}>{scanSummary.scan_summary}</p>
+            </div>
           )}
         </div>
       )}
@@ -419,22 +417,42 @@ export default function Dashboard() {
                 <h3 className="bug-title">{title}</h3>
                 <p className="bug-desc">{bug.description}</p>
 
-                {bug.steps_to_reproduce && (
-                  <div className="bug-meta" style={{ marginTop: '0.75rem' }}>
-                    <p><strong>Steps to reproduce:</strong></p>
-                    <p style={{ whiteSpace: 'pre-line', opacity: 0.85, fontSize: '0.9rem' }}>{bug.steps_to_reproduce}</p>
-                  </div>
+                {(bug.steps_to_reproduce || bug.expected_behavior || bug.actual_behavior) && (
+                  <details className="bug-details">
+                    <summary>
+                      <span style={{flex: 1}}>Technical Details</span>
+                      <span style={{fontSize: '1.2em', lineHeight: 1}}>▾</span>
+                    </summary>
+                    <div className="bug-details-content">
+                      {bug.steps_to_reproduce && (
+                        <div className="bug-details-section">
+                          <h4>Steps to reproduce</h4>
+                          <div style={{ whiteSpace: 'pre-line', opacity: 0.85 }}>{bug.steps_to_reproduce}</div>
+                        </div>
+                      )}
+                      
+                      {bug.expected_behavior && (
+                        <div className="bug-details-section">
+                          <h4>Expected Behavior</h4>
+                          <div style={{ opacity: 0.85 }}>{bug.expected_behavior}</div>
+                        </div>
+                      )}
+                      
+                      {bug.actual_behavior && (
+                        <div className="bug-details-section">
+                          <h4>Actual Behavior</h4>
+                          <div style={{ opacity: 0.85 }}>{bug.actual_behavior}</div>
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 )}
 
-                <div className="bug-meta">
-                  {bug.expected_behavior && (
-                    <p><strong>Expected:</strong> {bug.expected_behavior}</p>
-                  )}
-                  {bug.actual_behavior && (
-                    <p style={{ marginTop: '0.25rem' }}><strong>Actual:</strong> {bug.actual_behavior}</p>
-                  )}
-                  <p style={{ marginTop: '0.5rem', opacity: 0.7 }}><strong>URL:</strong> {bug.url}</p>
-                </div>
+                {bug.url && (
+                  <div className="bug-url">
+                    <span style={{ opacity: 0.5 }}>URL:</span> {bug.url}
+                  </div>
+                )}
 
                 {bug.signed_screenshot_url && (
                   <div className="screenshot-container">

@@ -27,6 +27,21 @@ def _ctx_name() -> str:
     return _current_context_name
 
 
+def has_context(name: str) -> bool:
+    """Check if a named browser context exists (was created during the scan)."""
+    return name in _contexts
+
+_url_screenshots: dict[str, str] = {}
+
+def add_url_screenshot(url: str, local_path: str):
+    """Save the most recent local screenshot path for a given URL."""
+    _url_screenshots[url] = local_path
+
+def get_url_screenshots() -> dict[str, str]:
+    """Return the map of URL to local screenshot paths."""
+    return _url_screenshots
+
+
 async def _ensure_context(url: str = None) -> Page:
     """Return the Page for the current named context, creating one if needed."""
     name = _ctx_name()

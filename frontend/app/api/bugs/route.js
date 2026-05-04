@@ -31,14 +31,20 @@ export async function GET(request) {
     // Always fetch live bugs from subcollection — these have reliable screenshot URIs
     // logged directly by log_bug.py, indexed by persona
     const liveBugsSnap = await db.collection(`scans/${latestScanId}/bugs`).get();
-    const screenshotByPersona = {};
+
+    // Build a list of all live bugs with their screenshots, grouped by persona
+    const liveBugsByPersona = {};  // persona → [{url, screenshot_uri}, ...]
     liveBugsSnap.docs.forEach(doc => {
       const d = doc.data();
       const uri = d.screenshot_gcs_uri || d.screenshot_url || '';
-      if (uri.startsWith('gs://') && d.persona && !screenshotByPersona[d.persona]) {
-        screenshotByPersona[d.persona] = uri;
+      if (uri.startsWith('gs://') && d.persona) {
+        if (!liveBugsByPersona[d.persona]) liveBugsByPersona[d.persona] = [];
+        liveBugsByPersona[d.persona].push({ url: d.url || '', screenshot_uri: uri });
       }
     });
+
+    // Track which live bug screenshots have been used (by persona) to assign in order
+    const usedIndexByPersona = {};
 
     let rawBugs = [];
     if (scanData.status === 'completed' && scanData.report && scanData.report.bugs) {
@@ -48,15 +54,33 @@ export async function GET(request) {
     }
 
     const bugs = rawBugs.map(bugData => {
-      // Try the URI embedded in the bug first, then fall back to any screenshot
-      // captured by the same persona in the live subcollection
+      // 1. Try the URI embedded directly in the bug (from the LLM report)
       let uri = bugData.screenshot_gcs_uri || bugData.screenshot_url || '';
+
+      // 2. If no direct URI, try to match by URL against the live Firestore subcollection
       if (!uri.startsWith('gs://')) {
         const personas = bugData.personas_affected || (bugData.persona ? [bugData.persona] : []);
         for (const p of personas) {
-          if (screenshotByPersona[p]) { uri = screenshotByPersona[p]; break; }
+          const liveBugs = liveBugsByPersona[p] || [];
+
+          // 2a. Try exact URL match first
+          const urlMatch = liveBugs.find(lb => lb.url && lb.url === bugData.url);
+          if (urlMatch) {
+            uri = urlMatch.screenshot_uri;
+            break;
+          }
+
+          // 2b. Fallback: assign screenshots sequentially by index
+          if (!usedIndexByPersona[p]) usedIndexByPersona[p] = 0;
+          const idx = usedIndexByPersona[p];
+          if (idx < liveBugs.length) {
+            uri = liveBugs[idx].screenshot_uri;
+            usedIndexByPersona[p] = idx + 1;
+            break;
+          }
         }
       }
+
       const screenshotUrl = uri.startsWith('gs://')
         ? `/api/screenshot?uri=${encodeURIComponent(uri)}`
         : null;
@@ -66,9 +90,9 @@ export async function GET(request) {
     // Include top-level summary fields when scan is complete (from EvalAgent final report)
     const summary = (scanData.status === 'completed' && scanData.report) ? {
       scan_summary: scanData.report.scan_summary || null,
-      total_bugs: scanData.report.total_bugs ?? bugs.length,
-      critical_count: scanData.report.critical_count ?? 0,
-      major_count: scanData.report.major_count ?? 0,
+      total_bugs: bugs.length,
+      critical_count: bugs.filter(b => b.severity === 5).length,
+      major_count: bugs.filter(b => b.severity === 4).length,
       metrics: scanData.report.metrics || [],
     } : null;
 
