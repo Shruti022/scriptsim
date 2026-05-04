@@ -10,7 +10,7 @@ Traditional accessibility tools primarily focus on surface-level compliance chec
 
 ## ✨ Key Features
 
-- **🎭 Autonomous User Personas**: Simulate interactions from users with diverse needs, including elderly individuals (simplified navigation), children (high cognitive load), and power users (technical stress).
+- **🎭 Autonomous User Personas**: Simulate interactions from users with diverse needs, including elderly individuals (simplified navigation), children (high cognitive load), and power users (technical stress), and anxious parents (privacy-conscious, cautious interaction patterns).
 - **🧠 Behavioral Insight**: Detect issues related to cognitive load, navigation clarity, and readability that static scanners miss.
 - **⚡ Parallel Simulation**: Deploy multiple agents simultaneously to explore diverse user journeys in a fraction of the time.
 - **📑 Structured ranked reports**: Get actionable insights with deduplicated, scored, and ranked bug reports powered by Gemini 2.5 Flash.
