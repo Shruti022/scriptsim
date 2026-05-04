@@ -129,7 +129,7 @@ export default function Dashboard() {
     const targetUrl = isDemo ? selectedApp.getUrl() : url;
 
     try {
-      const res = await fetch('/scan', {
+      const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
