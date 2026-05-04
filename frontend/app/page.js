@@ -8,10 +8,17 @@ const PERSONA_OPTIONS = [
   { id: 'retiree', label: 'Retiree', icon: '👓', desc: 'Simplified, high-contrast user.' },
 ];
 
+const getDemoAppUrl = (port) => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:${port}`;
+  }
+  return `http://localhost:${port}`;
+};
+
 const DEMO_APPS = [
-  { id: 'shop', label: 'ScriptSim Shop', url: 'http://localhost:5000', icon: '🛒', desc: 'E-commerce store with cart bugs.', email: 'test@scriptsim.com', password: 'TestPass123!' },
-  { id: 'jobs', label: 'TalentHub Jobs', url: 'http://localhost:5001', icon: '💼', desc: 'Job board with filtering & crash bugs.', email: 'user@talenthub.com', password: 'JobPass123!' },
-  { id: 'doctor', label: 'MediBook Health', url: 'http://localhost:5002', icon: '🏥', desc: 'Doctor booking with IDOR & double booking.', email: 'patient@medibook.com', password: 'HealthPass123!' },
+  { id: 'shop', label: 'ScriptSim Shop', getUrl: () => getDemoAppUrl(5000), icon: '🛒', desc: 'E-commerce store with cart bugs.', email: 'test@scriptsim.com', password: 'TestPass123!' },
+  { id: 'jobs', label: 'TalentHub Jobs', getUrl: () => getDemoAppUrl(5001), icon: '💼', desc: 'Job board with filtering & crash bugs.', email: 'user@talenthub.com', password: 'JobPass123!' },
+  { id: 'doctor', label: 'MediBook Health', getUrl: () => getDemoAppUrl(5002), icon: '🏥', desc: 'Doctor booking with IDOR & double booking.', email: 'patient@medibook.com', password: 'HealthPass123!' },
 ];
 
 export default function Dashboard() {
@@ -103,10 +110,11 @@ export default function Dashboard() {
     setScanSummary(null);
 
     const selectedApp = DEMO_APPS.find(a => a.id === selectedDemoApp);
-    const targetUrl = isDemo ? selectedApp.url : url;
+    const targetUrl = isDemo ? selectedApp.getUrl() : url;
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/scan', {
+      const apiUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8000/scan` : 'http://127.0.0.1:8000/scan';
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
