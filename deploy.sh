@@ -31,12 +31,25 @@ gcloud compute firewall-rules create scriptsim-allow-ports \
 echo "=== 4/5: Transferring files (including .env and GCP credentials) to the VM ==="
 # Compress the directory excluding node_modules and venv for faster transfer
 echo "Compressing files..."
-tar --exclude='node_modules' --exclude='venv' --exclude='.git' --exclude='.next' -czf scriptsim-deploy.tar.gz .
+tar --exclude='node_modules' --exclude='venv' --exclude='.git' --exclude='.next' \
+    --exclude='slides_export' --exclude='slides_export.zip' --exclude='logs' \
+    --exclude='__pycache__' --exclude='*.pyc' --exclude='mnt' \
+    -czf scriptsim-deploy.tar.gz .
 
 echo "Uploading files via SCP..."
 gcloud compute scp scriptsim-deploy.tar.gz $VM_NAME:~ --zone=$ZONE
-# Also securely copy the application default credentials so the backend can use Vertex AI
-gcloud compute scp ~/.config/gcloud/application_default_credentials.json $VM_NAME:~ --zone=$ZONE || echo "Warning: Could not copy ADC. Backend may fail Vertex AI calls if service account lacks permissions."
+
+# Copy ADC credentials — path varies by OS; GCE metadata server is the fallback if this fails
+ADC_WIN="/c/Users/shrut/AppData/Roaming/gcloud/application_default_credentials.json"
+ADC_LINUX="$HOME/.config/gcloud/application_default_credentials.json"
+ADC_PATH=""
+[ -f "$ADC_WIN" ]   && ADC_PATH="$ADC_WIN"
+[ -f "$ADC_LINUX" ] && ADC_PATH="$ADC_LINUX"
+if [ -n "$ADC_PATH" ]; then
+    gcloud compute scp "$ADC_PATH" $VM_NAME:~/application_default_credentials.json --zone=$ZONE || echo "Warning: Could not copy ADC — GCE metadata server will be used instead."
+else
+    echo "No ADC file found locally — GCE metadata server will handle auth on the VM."
+fi
 
 echo "=== 5/5: Installing Docker and Starting Services on the VM ==="
 gcloud compute ssh $VM_NAME --zone=$ZONE --command="

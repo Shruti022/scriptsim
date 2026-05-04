@@ -5,11 +5,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY tools/ ./tools/
-COPY agents/ ./agents/
-COPY schemas/ ./schemas/
-COPY orchestrator.py .
-COPY api/ ./api/
+COPY backend/tools/ ./tools/
+COPY backend/agents/ ./agents/
+COPY backend/schemas/ ./schemas/
+COPY backend/orchestrator.py .
+COPY backend/api/ ./api/
 
 EXPOSE 8080
 
