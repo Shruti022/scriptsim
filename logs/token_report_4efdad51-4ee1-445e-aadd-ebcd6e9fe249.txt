@@ -1,0 +1,32 @@
+============================================================
+TOKEN USAGE REPORT  —  scan: 4efdad51-4ee1-445e-aadd-ebcd6e9fe249
+Generated : 2026-04-27 00:11:42
+============================================================
+
+  persona_kid
+    API calls : 13
+    Input     : 22,247 tokens
+    Output    : 629 tokens
+    Total     : 22,876 tokens
+
+  report_kid
+    API calls : 1
+    Input     : 806 tokens
+    Output    : 214 tokens
+    Total     : 1,020 tokens
+
+  setup_agent
+    API calls : 2
+    Input     : 638 tokens
+    Output    : 34 tokens
+    Total     : 672 tokens
+
+------------------------------------------------------------
+  GRAND TOTAL
+    API calls  : 16
+    Input      : 23,691 tokens
+    Output     : 877 tokens
+    Total      : 24,568 tokens
+    Est. cost  : $0.0027  (Flash-Lite: $0.10/M in, $0.40/M out)
+    Elapsed    : 137.2s
+============================================================

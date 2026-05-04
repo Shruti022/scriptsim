@@ -1,0 +1,8 @@
+ScriptSim Agent Log
+Scan ID  : 0a27d0dc-b62c-4c6a-8e07-649ec1cd096d
+URL      : http://localhost:5000
+Started  : 2026-04-26 23:26:44
+Personas : ['kid', 'power_user', 'parent', 'retiree']
+============================================================
+
+[scan:0a27d0dc-b62c-4c6a-8e07-649ec1cd096d] Starting browser for setup + mapping...
