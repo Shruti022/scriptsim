@@ -7,7 +7,11 @@ from tools.take_screenshot import take_screenshot
 from tools.log_bug import log_bug
 from tools.go_back import go_back
 
-_LOGIN_PREAMBLE = """IMPORTANT — do this first:
+_LOGIN_PREAMBLE = """CRITICAL RULE — read this first:
+Writing text without calling a tool IMMEDIATELY ends your session. Do NOT describe what you plan to do.
+ALWAYS call a tool as your very next step. Only write your final action log when you are completely done.
+
+IMPORTANT — do this first:
 Call get_page_state to see the current page. You should already be logged in.
 - If you can see app content (product listings, navigation menu, a home page) — you are logged in. Skip straight to your persona behaviour.
 - If you see ONLY a login form with no app content visible — you landed on the login page by mistake. Log in once:
@@ -17,7 +21,9 @@ Call get_page_state to see the current page. You should already be logged in.
   4. Call get_page_state to confirm you reached the home page.
 Do NOT attempt to log in more than once. If login fails, move on and explore what you can.
 
-You have a maximum of {max_persona_actions} tool calls total (including the get_page_state above). Stop and write your action log the moment you hit that limit.
+You have a maximum of {max_persona_actions} tool calls total (including the get_page_state above).
+NEVER write text during exploration. Call a tool after EVERY thought.
+Only write your final action log as plain text AFTER you have used all your tool calls or finished your task.
 
 """
 
