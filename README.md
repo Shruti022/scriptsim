@@ -10,7 +10,7 @@ Traditional accessibility tools primarily focus on surface-level compliance chec
 
 ## ✨ Key Features
 
-- **🎭 Autonomous User Personas**: Simulate interactions from users with diverse needs, including elderly individuals (simplified navigation), children (high cognitive load), and power users (technical stress), and anxious parents (privacy-conscious, cautious interaction patterns).
+- **🎭 Autonomous User Personas**: Simulate interactions from users with diverse needs, including elderly individuals (simplified navigation), children (high cognitive load), power users (technical stress), and anxious parents (privacy-conscious, cautious interaction patterns).
 - **🧠 Behavioral Insight**: Detect issues related to cognitive load, navigation clarity, and readability that static scanners miss.
 - **⚡ Parallel Simulation**: Deploy multiple agents simultaneously to explore diverse user journeys in a fraction of the time.
 - **📑 Structured ranked reports**: Get actionable insights with deduplicated, scored, and ranked bug reports powered by Gemini 2.5 Flash.
@@ -43,7 +43,7 @@ The ReportAgent, SynthesisAgent, and EvalAgent all use ADK's `output_schema` par
 **Slides:** `Apr 20 - Agents as Functions` (agent as function `f(instructions, tools)(messages) → output`; `asyncio.gather` for running parallel agent instances); `Mar 23 - Multi-Agent Patterns` (slides 1–20: single-agent ceiling — instruction confusion, tool sprawl, context pollution — motivates splitting into specialized parallel agents)  
 **Files:** `backend/orchestrator.py`, `backend/tools/browser.py`
 
-Four persona agents run concurrently inside a single asyncio event loop. Browser isolation is the hard part: all four agents call the same tool functions, so there is no "one page per agent" default. The solution maps each `asyncio.current_task()` ID to its own `BrowserContext` in a `_contexts` dict in `browser.py`. When `get_page()` is called, it looks up the calling task's context and returns that task's isolated `Page`. The session state captured by `login.py` (full Playwright `storage_state()` — cookies + localStorage) is injected into each new context so every persona starts already authenticated without re-running the login flow.
+Four persona agents run concurrently inside a single asyncio event loop. Browser isolation is the hard part: all four agents call the same tool functions, so there is no "one page per agent" default. The solution uses a named-context dict (`_contexts`) in `browser.py` keyed by persona name (e.g. `"persona_kid"`, `"persona_retiree"`). The orchestrator calls `set_context_name()` before each agent phase to point all tool calls to the correct context. When `get_page()` is called, it returns the page for `_current_context_name`. The session state captured by `login.py` (full Playwright `storage_state()` — cookies + localStorage) is injected into each new context so every persona starts already authenticated without re-running the login flow.
 
 ### 5. Evaluation Agent with Behavioral Metrics
 **Slides:** `Feb 09 - Evaluation` (Three Pillar Framework: Dataset, Metrics, Methods; Model-as-a-Judge — an LLM grades outputs produced by another LLM, exactly how `EvalAgent` re-ranks bugs from `SynthesisAgent`)  
@@ -88,17 +88,20 @@ graph TD
     Dashboard -->|Reads State| Firestore
 ```
 
+> **Note:** The Mapper Agent is disabled in all scan modes. It enters an infinite loop on apps with non-navigating buttons (e.g. "Add to Cart" clicks the button, nothing navigates, `go_back` returns to homepage, repeats). Personas find bugs effectively without a feature map.
+
 ---
 
 ## 🧠 Key Design Decisions
 
--   **Inclusive Design Focus**: We prioritize agents that test "User Friction" rather than just code errors. If an agent with "High Cognitive Load" gets stuck, it's a bug—even if the code is technically correct.
--   **Stateless Frontend / Stateful Backend**: The Next.js dashboard is a reactive observer. The core state lives in **Firebase Firestore**, ensuring real-time activity updates for distributed teams.
--   **Schema-First Reporting**: Every usability gap is validated against a Pydantic schema, ensuring developers get standardized data (affected persona, severity, steps to reproduce).
-- **"Begin." as the pipeline trigger**: ADK's `SequentialAgent` passes the same user message to every sub-agent. A descriptive message like "Run QA scan" caused SetupAgent (which only has a `login` tool) to refuse with "I cannot run a full QA scan." The neutral `"Begin."` forces each agent to rely entirely on its own instruction.
-- **Report agents run sequentially, not in parallel**: Running all 4 report agents in parallel right after 4 parallel persona agents caused 429 rate limit errors from Vertex AI. Sequential execution spaces out the API calls at the cost of ~30 extra seconds per scan.
-- **Mapper is skipped**: The mapper gets stuck in an infinite loop on apps with non-navigating buttons like "Add to Cart" — clicks the button, nothing navigates, calls `go_back` from homepage (no history), lands on `about:blank`, repeats. Personas find bugs effectively without a feature map.
-- **output_schema and tools on different agents**: ADK enforces a hard constraint: an agent cannot have both `tools` and `output_schema`. PersonaAgents have 7 tools, no schema (free exploration). ReportAgents have a Pydantic schema, no tools (structured extraction). This shaped the entire two-tier architecture.
+-   **Personas over static scanners — the core business bet**: Traditional accessibility tools (axe, Lighthouse) check rules. ScriptSim checks behavior — whether a real user type can actually complete a task. This is the product differentiation: a compliant UI can still fail an 8-year-old or a 67-year-old. Behavioral bugs are invisible to rule-checkers and expensive to catch in user research; ScriptSim automates what would otherwise be a $5,000–$15,000 usability study.
+-   **Stateless Frontend / Stateful Backend**: The Next.js dashboard is a reactive observer. The core state lives in **Firebase Firestore**, ensuring real-time activity updates for distributed teams. This also means the frontend scales to zero cost when idle — important for keeping the unit economics at ~$0.03/scan rather than paying for always-on compute.
+-   **Schema-First Reporting**: Every usability gap is validated against a Pydantic schema, ensuring developers get standardized, actionable data (affected persona, severity, steps to reproduce). Structured output means reports can plug directly into Jira/Linear with no manual reformatting — reducing the "last mile" friction that kills adoption of QA tools.
+- **Sequential report agents, not parallel**: Running all 4 report agents in parallel right after 4 parallel persona agents caused 429 rate limit errors from Vertex AI. Sequential execution spaces out the API calls at the cost of ~30 extra seconds per scan. This keeps per-scan cost predictable and within the $0.03 budget that makes the $9 price point viable.
+- **Two LLMs at different price tiers**: Persona agents use Gemini 2.5 Flash-Lite (fast, cheap — ~$0.002/persona) for free-form browsing. Report, synthesis, and eval agents use Gemini 2.5 Flash (higher reasoning) only for structured extraction. Using the cheaper model where quality doesn't matter and the better model only where it does keeps gross margin above 90%.
+- **"Begin." as the pipeline trigger**: ADK's `SequentialAgent` passes the same user message to every sub-agent. A descriptive message like "Run QA scan" caused SetupAgent (which only has a `login` tool) to refuse with "I cannot run a full QA scan." The neutral `"Begin."` forces each agent to rely entirely on its own instruction — a reliability requirement for a product that must work without human supervision.
+- **Mapper is skipped**: The mapper gets stuck in an infinite loop on apps with non-navigating buttons like "Add to Cart" — clicks the button, nothing navigates, calls `go_back` from homepage (no history), lands on `about:blank`, repeats. Personas find bugs effectively without a feature map, and skipping the mapper shaves ~2 minutes and ~$0.005 off every scan.
+- **output_schema and tools on different agents**: ADK enforces a hard constraint: an agent cannot have both `tools` and `output_schema`. PersonaAgents have 7 tools, no schema (free exploration). ReportAgents have a Pydantic schema, no tools (structured extraction). This shaped the two-tier architecture and is what allows the system to produce developer-ready bug tickets rather than free-text summaries.
 
 ---
 
@@ -118,6 +121,7 @@ graph TD
 Three Flask apps with deliberate planted bugs — the system's test targets.
 
 **ScriptSim Shop** (port 5000) — `apps/shop/app.py`  
+Live: [https://shop-efcawvlzba-uc.a.run.app](https://shop-efcawvlzba-uc.a.run.app)  
 Login: `test@scriptsim.com` / `TestPass123!`
 - XSS in search — query rendered with Jinja `|safe` filter
 - Silent cart failure — "Super Gadget" shows success but is never added
@@ -126,12 +130,14 @@ Login: `test@scriptsim.com` / `TestPass123!`
 - Frozen checkout — button permanently disabled with no explanation
 
 **TalentHub Jobs** (port 5001) — `apps/job_board/app.py`  
+Live: [https://job-board-efcawvlzba-uc.a.run.app](https://job-board-efcawvlzba-uc.a.run.app)  
 Login: `user@talenthub.com` / `JobPass123!`
 - Applications not persisted — apply succeeds, but "My Applications" is always empty
 - Sort by salary silently ignored — query param received, never applied
 - Crash on duplicate apply — `RuntimeError` → 500
 
 **MediBook Health** (port 5002) — `apps/doctor_booking/app.py`  
+Live: [https://doctor-booking-efcawvlzba-uc.a.run.app](https://doctor-booking-efcawvlzba-uc.a.run.app)  
 Login: `patient@medibook.com` / `HealthPass123!`
 - Double booking — same slot bookable multiple times with no conflict check
 - IDOR on cancel — `/cancel/<id>` cancels any patient's appointment, no ownership check
@@ -230,7 +236,7 @@ Required IAM roles: `Vertex AI User`, `Cloud Datastore User`, `Storage Object Cr
 python start.py
 ```
 
-Open **http://localhost:3000**, select a demo app, pick personas, click **Run Parallel Scan**.
+Open **http://localhost:3000**, select a demo app, pick personas, click **Run Scan**.
 
 ---
 Built for product teams who believe that **compliant** isn't the same as **inclusive**.
