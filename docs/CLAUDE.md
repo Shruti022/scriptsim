@@ -30,9 +30,10 @@ python start.py
 Opens: Demo App (port 5000) + API (port 8000) + Dashboard (port 3000)
 Then visit http://localhost:3000 → select Demo App → Run Parallel Scan
 
-## Scan modes
-- **Smoke Test Mode** (checkbox in dashboard): 1 persona, 5 actions, skip mapper — fast demo (~3 min)
-- **Full Scan**: all selected personas, 7 actions each (soft limit), mapper skipped — confirmed working (~10 min, $0.023)
+## Scan modes (from orchestrator.py)
+- **fast**: 1 persona (first selected), 7 actions, skip mapper — ~3 min, ~$0.005
+- **smoke**: 1 persona (first selected), 10 actions, skip mapper — ~5 min
+- **full**: all selected personas, 12 actions each, mapper skipped — ~10 min, ~$0.030
 
 ## Critical ADK constraint
 output_schema and tools are MUTUALLY EXCLUSIVE in Gemini.
@@ -46,11 +47,12 @@ PersonaAgent writes to state["action_log_kid"]
 ReportAgent reads via {action_log_kid} in its instruction template.
 
 ## Browser isolation (critical — how parallel personas work)
-Each asyncio Task (persona) gets its own isolated BrowserContext via `_contexts` dict
-keyed by `asyncio.current_task()` ID. login.py captures the full Playwright `storage_state()`
-after SetupAgent logs in — new persona contexts are created with `browser.new_context(storage_state=...)`
-so they start already authenticated on any site that uses cookies or localStorage for auth.
-Never use a single global `_page` — that was the old broken design.
+Each persona gets its own named BrowserContext via `_contexts` dict keyed by `_current_context_name`
+(e.g. "persona_kid", "persona_retiree"). Set via `set_context_name()` in the orchestrator before
+each agent phase. login.py captures the full Playwright `storage_state()` after SetupAgent logs in —
+new persona contexts are created with `browser.new_context(storage_state=...)` so they start already
+authenticated on any site that uses cookies or localStorage for auth.
+Never use a single global `_page` — use get_page() which returns the current named context's page.
 Known limitation: React SPAs that store auth only in component memory (e.g. saucedemo.com)
 cannot be pre-authenticated this way — personas must self-login in those cases.
 
@@ -132,7 +134,12 @@ scriptsim/
   - scans/{scan_id}/bugs/ — bug reports
   - scans/{scan_id}/activity/ — live agent activity for dashboard
 - GCS bucket: scriptsim-screenshots (us-central1, no public access — use gs:// URIs)
-- Cloud Run service: scriptsim-worker (not yet deployed)
+- Cloud Run services (all deployed, us-central1):
+  - frontend: https://frontend-644775198874.us-central1.run.app
+  - backend:  https://backend-644775198874.us-central1.run.app
+  - shop:     https://shop-efcawvlzba-uc.a.run.app
+  - job-board: https://job-board-efcawvlzba-uc.a.run.app
+  - doctor-booking: https://doctor-booking-efcawvlzba-uc.a.run.app
 
 ## Demo apps
 
@@ -218,27 +225,28 @@ python test_agent.py persona kid https://mysite.com https://mysite.com/signin us
 Note: `test_agent.py persona` pre-logs in before running the persona. Requires demo app running.
 
 ## What is done
-- tools/ — all 10 async Playwright tools, per-task browser isolation implemented
+- tools/ — all 10 async Playwright tools, named-context browser isolation implemented
 - login.py — captures full storage_state (cookies + localStorage) so persona contexts start authenticated
-- browser.py — inject_storage_state() + new contexts created with storage_state= for any auth mechanism
+- browser.py — named contexts (_current_context_name) keyed per persona, inject_storage_state()
 - agents/ + schemas/ + orchestrator.py — full ADK pipeline confirmed working end-to-end
 - setup_agent.py — uses {login_url} (not hardcoded /login), imperative instruction forces login call
 - persona_agent.py — _LOGIN_PREAMBLE uses {login_email}/{login_password} from session state
-- orchestrator.py — login_url param, multi-site CLI, user message fixed, report sequential, fences fixed
+- orchestrator.py — skip_login auto-set when no credentials provided (public sites), asyncio event loop fix
+- api/main.py — simplified scan trigger: always uses trigger_scan_task, removed visible-browser capture flow
 - eval_agent.py + synthesis_agent.py — stronger anti-fence instructions (first/last char rule)
 - GCS bucket + Firestore — created and tested
-- demo_app/app.py — Flask shop with 5 planted bugs (Person 3)
-- demo_app/job_board/app.py — TalentHub job board with 3 planted bugs (port 5001)
-- demo_app/doctor_booking/app.py — MediBook doctor booking with 3 planted bugs (port 5002)
-- dashboard/ — Next.js UI with live activity console (Person 3)
-- api/ — FastAPI POST /scan endpoint with background task runner (Person 3)
-- start.py — one-command launcher for all 3 services
-- logs/ — per-scan agent logs and token usage reports (Person 2 addition)
+- apps/shop/app.py — Flask shop with 5 planted bugs (port 5000)
+- apps/job_board/app.py — TalentHub job board with 3 planted bugs (port 5001)
+- apps/doctor_booking/app.py — MediBook doctor booking with 3 planted bugs (port 5002)
+- frontend/ — Next.js UI with live activity console, email/username + password fields for live URLs
+- backend/api/ — FastAPI POST /scan endpoint with background task runner
+- start.py — one-command launcher for all services locally
+- logs/ — per-scan agent logs and token usage reports
+- Cloud Run — all 5 services deployed and live
 - Generalization confirmed — full scan completed against automationexercise.com (real public site)
+- Public sites (no login) supported — skip_login triggered automatically when no credentials given
 
 ## What is pending
-- Cloud Run deployment — Person 1 (session: person1-cloudrun)
-- Deploy demo app to Railway/Cloud Run for public URL
 - Write final project report
 
 ## Session naming convention for Claude Code
