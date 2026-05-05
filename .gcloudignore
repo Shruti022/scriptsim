@@ -11,4 +11,5 @@ slides_export.zip
 logs/
 mnt/
 *.docx
-ScriptSim_Business_Plan.docx
+*.pptx
+~$*

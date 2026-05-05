@@ -153,8 +153,10 @@ def trigger_scan_task(
     url: str, email: str, password: str, scan_id: str,
     personas: list[str], scan_mode: str, storage_state: dict = None
 ):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        asyncio.run(run_scan(
+        loop.run_until_complete(run_scan(
             target_url=url,
             login_email=email,
             login_password=password,
@@ -165,6 +167,8 @@ def trigger_scan_task(
         ))
     except Exception as e:
         print(f"Scan {scan_id} failed: {e}")
+    finally:
+        loop.close()
 
 
 async def capture_then_scan(
@@ -196,58 +200,23 @@ async def create_scan(request: ScanRequest, background_tasks: BackgroundTasks):
 
     scan_id = str(uuid.uuid4())
     is_demo = request.is_demo or any(port in request.url for port in ["5000", "5001", "5002"]) or "localhost" in request.url or "127.0.0.1" in request.url
+    has_credentials = bool(request.email and request.password)
 
-    if is_demo:
-        background_tasks.add_task(
-            trigger_scan_task,
-            request.url,
-            request.email,
-            request.password,
-            scan_id,
-            request.personas,
-            request.scan_mode,
-            None,
-        )
-        return ScanResponse(
-            scan_id=scan_id,
-            status="started",
-            message="Demo scan started with automated login.",
-        )
-
-    storage_state = _captured_sessions.get(request.url)
-
-    if storage_state:
-        print(f"[ScriptSim] Using saved session for {request.url}")
-        background_tasks.add_task(
-            trigger_scan_task,
-            request.url,
-            request.email,
-            request.password,
-            scan_id,
-            request.personas,
-            request.scan_mode,
-            storage_state,
-        )
-        return ScanResponse(
-            scan_id=scan_id,
-            status="started",
-            message="Scan started using saved session.",
-        )
-    else:
-        background_tasks.add_task(
-            capture_then_scan,
-            request.url,
-            request.email,
-            request.password,
-            scan_id,
-            request.personas,
-            request.scan_mode,
-        )
-        return ScanResponse(
-            scan_id=scan_id,
-            status="awaiting_login",
-            message="A browser window will open. Log in, then click the blue button to start the scan.",
-        )
+    background_tasks.add_task(
+        trigger_scan_task,
+        request.url,
+        request.email,
+        request.password,
+        scan_id,
+        request.personas,
+        request.scan_mode,
+        None,
+    )
+    return ScanResponse(
+        scan_id=scan_id,
+        status="started",
+        message="Scan started.",
+    )
 
 
 @app.get("/session-status")

@@ -29,6 +29,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [url, setUrl] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [isDemo, setIsDemo] = useState(true);
   const [selectedDemoApp, setSelectedDemoApp] = useState(DEMO_APPS_BASE[0].id);
   const [scanMode, setScanMode] = useState('full');
@@ -134,8 +136,8 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: targetUrl,
-          email: isDemo ? selectedApp.email : null,
-          password: isDemo ? selectedApp.password : null,
+          email: isDemo ? selectedApp.email : (loginEmail || null),
+          password: isDemo ? selectedApp.password : (loginPassword || null),
           personas: selectedPersonas,
           scan_mode: scanMode,
           is_demo: isDemo,
@@ -209,13 +211,31 @@ export default function Dashboard() {
             </button>
           </div>
           {!isDemo && (
-            <input
-              type="text"
-              placeholder="https://your-site.com"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="url-input"
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.75rem' }}>
+              <input
+                type="text"
+                placeholder="https://your-site.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="url-input"
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <input
+                  type="text"
+                  placeholder="Login email or username (optional)"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="url-input"
+                />
+                <input
+                  type="password"
+                  placeholder="Password (optional)"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="url-input"
+                />
+              </div>
+            </div>
           )}
           {isDemo && (
             <div className="demo-app-selector" style={{ marginTop: '1rem' }}>
@@ -295,7 +315,7 @@ export default function Dashboard() {
           disabled={isScanning}
           style={{ marginTop: '2rem' }}
         >
-          {isScanning ? 'Launching Agents...' : `Run Scan (${getEstimatedTime()})`}
+          {isScanning ? 'Launching Agents...' : 'Run Scan'}
         </button>
       </section>
 

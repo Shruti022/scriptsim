@@ -277,7 +277,8 @@ async def run_scan(
         print(f"Warning: Failed to create Firestore scan document: {e}")
 
     session_service = InMemorySessionService()
-    pipeline = _build_pipeline(personas, skip_mapper=skip_mapper, skip_login=storage_state is not None or bool(cookies), run_id=scan_id[:8])
+    no_credentials = not login_email and not login_password
+    pipeline = _build_pipeline(personas, skip_mapper=skip_mapper, skip_login=storage_state is not None or bool(cookies) or no_credentials, run_id=scan_id[:8])
 
     runner = Runner(
         agent=pipeline,
